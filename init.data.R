@@ -1,4 +1,4 @@
-init.data <- function(data=NA,M=NA,inits=inits,initTrue=FALSE){
+init.data <- function(data=NA,M=NA,inits=inits,n.cluster.init=30,initTrue=FALSE){
   this.k <- data$this.k
   K <- data$K
   n.cov <- data$n.cov
@@ -16,7 +16,7 @@ init.data <- function(data=NA,M=NA,inits=inits,initTrue=FALSE){
   
   #initialize G.obs.true, the true sample-level full categorical identities
   #initializing to the most commonly observed sample by category values across observers
-  G.obs.true <- matrix(0,nrow=n.samples,ncol=n.cov)
+  G.obs.true <- matrix(NA,nrow=n.samples,ncol=n.cov)
   for(i in 1:n.samples){
     for(l in 1:n.cov){
       vec <- G.obs[i,l,]
@@ -30,16 +30,25 @@ init.data <- function(data=NA,M=NA,inits=inits,initTrue=FALSE){
           choose <- choose[pick]
         }
         G.obs.true[i,l] <- choose
+      }else{
+        G.obs.true[i,l] <- sample(IDcovs[[l]],1,replace=FALSE,prob=gammaMat[l,1:n.levels[l]])
       }
     }
   }
-
-  y.true <- matrix(0,M,K)
-  if(initTrue==TRUE){
+  if(initTrue){
     ID <- data$ID
   }else{
-    ID <- sample(1:M,n.samples,replace=TRUE)
+    #find unique consensus genotypes
+    G.obs.true2 <- apply(G.obs.true,1,paste,collapse="")
+    unique.genos <- unique(G.obs.true2)
+    n.unique.genos <- length(unique.genos)
+    if(n.unique.genos>M)stop("More unique consensus genotypes them M, raise M to initialize or write your own algorithm")
+    ID <- match(G.obs.true2,unique.genos)
+    # G.clusters <- kmeans(G.obs.true,round(n.samples/2)) #use kmeans to cluster crude consensus genotypes
+    # ID <- G.clusters$cluster
   }
+
+  y.true <- matrix(0,M,K)
   for(l in 1:n.samples){
     y.true[ID[l],this.k[l]] <- y.true[ID[l],this.k[l]] + 1
   }
@@ -69,13 +78,12 @@ init.data <- function(data=NA,M=NA,inits=inits,initTrue=FALSE){
     G.true[fix,j] <- sample(IDcovs[[j]],sum(fix),replace=TRUE,prob=gammaMat[j,1:n.levels[j]])
   }
   
-  
   #Converting NAs in G.obs to some other arbitrary value that is not a genotype number to avoid NA warnings from nimble
   G.obs <- data$G.obs
   G.obs.NA.indicator <- is.na(G.obs)
   G.obs[is.na(G.obs)] <- 9999999
   if(n.rep==1){
-    stop("n.rep==1 not currently handled")
+    stop("n.rep==1 not currently handled, won't work without space.")
   }
   if(n.cov==1){
     stop("n.cov==1 not currently handled")
