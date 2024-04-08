@@ -173,7 +173,7 @@ Nimdata <- list(G.obs=nimbuild$G.obs)
 Niminits <- list(z=nimbuild$z,N=nimbuild$N, #must initialize N to be sum(z) for this data augmentation approach
                  G.true=nimbuild$G.true,ID=nimbuild$ID,capcounts=rowSums(nimbuild$y.true),
                  y.true=nimbuild$y.true,G.latent=nimbuild$G.latent,p.geno.het=c(0.75,0.24,0.01),p.geno.hom=c(0.9,0.1),
-                 gamma=gammaMat)
+                 gammaMat=gammaMat)
 
 #constants for Nimble
 constants <- list(M=M,K=K,n.samples=n.samples,n.cov=n.cov,n.rep=n.rep,
