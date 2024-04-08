@@ -157,8 +157,9 @@ ptype  <-  built.genos$ptypeArray
 
 #OK, what is the data we use to fit the model?
 #1) data$G.obs, the observed genotypes
-#2) y.true and ID. Note, you can build y.true with ID, the individual of each sample, and this.k, the occasion of each sample.
-#if we initialize ID, y.true is initialized. If we update ID, y.true is updated. So, we just initialize these, provide to nimble
+#2) y.true/ID. Note, you can build y.true with ID, the individual of each sample, and this.k, the occasion of each sample.
+#we specify a distribution on y.true, not ID. If we initialize ID, y.true is initialized.
+#If we update ID, y.true is updated. So, we just initialize these, provide to nimble
 #as inits, and update them on each MCMC iteration
 
 #supply data to nimble
@@ -236,7 +237,7 @@ conf$addSampler(target = paste0("G.true[1:",M,",1:",n.cov,"]"),
                                G.true.nodes=G.true.nodes,G.obs.nodes=G.obs.nodes,
                                calcNodes=calcNodes), silent = TRUE)
 
-###*required* sampler replacement for "alternative data augmentation" N/z update
+###*required* sampler replacement for "alternative data augmentation" z/ID update (using distributions on N/y.true)
 z.ups <- round(M*0.25) # how many N/z proposals per iteration? Not sure what is optimal, setting to 25% of M here.
 # conf$removeSampler("N")
 #nodes used for update, calcNodes + z nodes
@@ -277,7 +278,7 @@ mvSamples <- as.matrix(Cmcmc$mvSamples)
 
 #remove gammaMat posteriors (not that interesting and tons of them) and plot
 idx <- grep("gammaMat",colnames(mvSamples))
-plot(mcmc(mvSamples[50:nrow(mvSamples),-idx]))
+plot(mcmc(mvSamples[500:nrow(mvSamples),-idx]))
 
 data$n #number of individuals captured to compare to posterior for n. No uncertainty with enough genotype info.
 

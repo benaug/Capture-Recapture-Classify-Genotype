@@ -30,13 +30,16 @@ NimModel <- nimbleCode({
   
   ##likelihoods##
   N ~ dpois(lambda.N) #realized abundance
-  for(i in 1:M){ #data augmentation "under the hood", jointly update z/N
+  #data augmentation "under the hood", jointly update N/z, 
+  #no distribution induced on z, just turns obsmod on/off, used in y.true/ID update
+  for(i in 1:M){
     for(m in 1:n.cov){
       #Individual genotypes, all augmented individuals
       G.true[i,m] ~ dcat(gammaMat[m,1:n.levels[m]])
     }
     #Observation model is zero-truncated Poisson hurdle
     #vectorized over occasions, only evaluated when z[i]=1
+    #y.true/ID are latent, updated "under the hood"
     y.true[i,1:K] ~ dHurdleVector(p.y=p.y,lambda.y=lambda.y,K=K,z=z[i])
   }
   #genotype classification probability array
@@ -58,5 +61,6 @@ NimModel <- nimbleCode({
   #calculate number of inds captured, intermediate object to compute n below
   capcounts[1:M] <- Getcapcounts(y.true=y.true[1:M,1:K])
   #must use ID and G.latent somewhere to make nimble happy. Sticking them here, not used in function.
+  #G.latent used in custom G.true update
   n <- Getncap(capcounts=capcounts[1:M],ID=ID[1:n.samples],G.latent=G.latent[1:M,1:n.cov])
 })# end model
