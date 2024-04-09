@@ -3,7 +3,7 @@ NimModel <- nimbleCode({
   #process model
   lambda.N ~ dunif(0,300) #expected abundance
   #genotype frequency priors
-  for(m in 1:n.cov){
+  for(m in 1:n.loci){
     for(k in 1:n.levels[m]){
       #dirichlet prior parameters, 1 is "all equal", could be smarter
       alpha[m,k] <- 1
@@ -33,7 +33,7 @@ NimModel <- nimbleCode({
   #data augmentation "under the hood", jointly update N/z, 
   #no distribution induced on z, just turns obsmod on/off, used in y.true/ID update
   for(i in 1:M){
-    for(m in 1:n.cov){
+    for(m in 1:n.loci){
       #Individual genotypes, all augmented individuals
       G.true[i,m] ~ dcat(gammaMat[m,1:n.levels[m]])
     }
@@ -45,13 +45,13 @@ NimModel <- nimbleCode({
   #genotype classification probability array
   #getTheta() divides the probability of each error type by the number of ways
   #the error can be made and structures into classification array
-  theta[1:n.cov,1:max.levels,1:max.levels] <- getTheta(ptype = ptype[1:n.cov,1:max.levels,1:max.levels],
+  theta[1:n.loci,1:max.levels,1:max.levels] <- getTheta(ptype = ptype[1:n.loci,1:max.levels,1:max.levels],
                                                        p.geno.het = p.geno.het[1:3],
                                                        p.geno.hom = p.geno.hom[1:2],
-                                                       n.levels=n.levels[1:n.cov])
+                                                       n.levels=n.levels[1:n.loci])
   #genotype observation process, vectorized over reps
   for(l in 1:n.samples){
-    for(m in 1:n.cov){
+    for(m in 1:n.loci){
       #custom distribution to skip missing values.
       #ID updates won't always work if you sample unobserved data.
       G.obs[l,m,1:n.rep] ~ dcat2(theta=theta[m,G.true[ID[l],m],1:n.levels[m]],
@@ -62,5 +62,5 @@ NimModel <- nimbleCode({
   capcounts[1:M] <- Getcapcounts(y.true=y.true[1:M,1:K])
   #must use ID and G.latent somewhere to make nimble happy. Sticking them here, not used in function.
   #G.latent used in custom G.true update
-  n <- Getncap(capcounts=capcounts[1:M],ID=ID[1:n.samples],G.latent=G.latent[1:M,1:n.cov])
+  n <- Getncap(capcounts=capcounts[1:M],ID=ID[1:n.samples],G.latent=G.latent[1:M,1:n.loci])
 })# end model

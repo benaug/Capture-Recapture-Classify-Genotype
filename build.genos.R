@@ -1,10 +1,10 @@
 build.genos <- function(unique.genos){
-  if(!is.list(unique.genos))stop("unique.genos should be a list of length n.cov (number of genetic loci)")
-  n.cov <- length(unique.genos)
+  if(!is.list(unique.genos))stop("unique.genos should be a list of length n.loci (number of genetic loci)")
+  n.loci <- length(unique.genos)
   n.levels <- unlist(lapply(unique.genos,nrow))
-  zygotype <- list(n.cov)
-  ptype <- list(n.cov)
-  for(m in 1:n.cov){
+  zygotype <- list(n.loci)
+  ptype <- list(n.loci)
+  for(m in 1:n.loci){
     zygotype[[m]] <- rep(NA,n.levels[m])
     ptype[[m]] <- matrix(NA,n.levels[m],n.levels[m])
     for(l in 1:n.levels[m]){
@@ -29,8 +29,8 @@ build.genos <- function(unique.genos){
   }
   #make a version of ptype that is a ragged array for nimble
   max.levels <- max(n.levels)
-  ptypeArray <- array(NA,dim=c(n.cov,max.levels,max.levels))
-  for(m in 1:n.cov){
+  ptypeArray <- array(NA,dim=c(n.loci,max.levels,max.levels))
+  for(m in 1:n.loci){
     ptypeArray[m,1:n.levels[m],1:n.levels[m]] <- ptype[[m]]
   }
   return(list(zygotype=zygotype,ptype=ptype,ptypeArray=ptypeArray))

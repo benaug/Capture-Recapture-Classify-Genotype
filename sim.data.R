@@ -1,10 +1,10 @@
 sim.data <-
   function(N=NA,p.y=NA,lambda.y=NA,K=NA,p.geno.het=NA,
-           p.geno.hom=NA,n.cov=NA,n.rep=NA,
+           p.geno.hom=NA,n.loci=NA,n.rep=NA,
            pID=NA,gamma=NA,IDcovs=NA,ptype=NA){
     #error checks
-    if(length(gamma)!=n.cov)stop("gamma must be of length n.cov")
-    for(l in 1:n.cov){
+    if(length(gamma)!=n.loci)stop("gamma must be of length n.loci")
+    for(l in 1:n.loci){
       if(length(gamma[[l]])!=length(IDcovs[[l]]))stop("gamma[[l]] must have one element per element of IDcovs[[l]]")
       if(sum(gamma[[l]])!=1)stop("gamma[[l]] must sum to 1")
     }
@@ -15,9 +15,9 @@ sim.data <-
     
     #simulate IDcovs
     n.levels <- unlist(lapply(gamma,length))
-    G.true <- matrix(NA,nrow=N,ncol=n.cov) #all IDcovs in population.
+    G.true <- matrix(NA,nrow=N,ncol=n.loci) #all IDcovs in population.
     for(i in 1:N){
-      for(j in 1:n.cov){
+      for(j in 1:n.loci){
         G.true[i,j] <- sample(IDcovs[[j]],1,prob=gamma[[j]])
       }
     }
@@ -40,10 +40,10 @@ sim.data <-
     n <- length(caught)
     n.samples <- sum(y)
     G.true <- G.true[caught,]
-    if(n.cov==1){
+    if(n.loci==1){
       G.true <- matrix(G.true,ncol=1)
     }
-    G.cap <- matrix(NA,nrow=n.samples,ncol=n.cov)
+    G.cap <- matrix(NA,nrow=n.samples,ncol=n.loci)
     # ID <- rep(1:nrow(y),times=rowSums(y))
     
     #disaggregate samples
@@ -89,8 +89,8 @@ sim.data <-
     if(!all(y.obs==y)){
       stop("Error in data simulator!")
     }
-    theta=vector("list",n.cov)
-    for(m in 1:n.cov){
+    theta=vector("list",n.loci)
+    for(m in 1:n.loci){
       theta[[m]]=matrix(0,nrow=n.levels[m],ncol=n.levels[m])
       for(l in 1:n.levels[m]){
         if(!any(ptype[[m]][l,]==2)){#homozygote
@@ -105,10 +105,10 @@ sim.data <-
     }
     
     #observation error
-    G.error=array(NA,dim=c(n.samples,n.cov,n.rep))
+    G.error=array(NA,dim=c(n.samples,n.loci,n.rep))
     for(k in 1:n.rep){
       G.error[,,k]=G.cap
-      for(l in 1:n.cov){
+      for(l in 1:n.loci){
         for(i in 1:n.samples){
           if(rbinom(1,1,pID[l])==1){
             for(j in 1:n.levels[l]){
@@ -123,9 +123,9 @@ sim.data <-
       }
     }
     #find errors that occurred
-    G.Obstype=array(0,dim=c(n.samples,n.cov,n.rep))
+    G.Obstype=array(0,dim=c(n.samples,n.loci,n.rep))
     for(k in 1:n.rep){
-      for(l in 1:n.cov){
+      for(l in 1:n.loci){
         for(i in 1:n.samples){
           if(is.na(G.error[i,l,k]))next#is missing
           if(G.error[i,l,k]==G.cap[i,l]){#is correct
@@ -145,8 +145,8 @@ sim.data <-
     #how many of the crude consensus genotypes are corrupted?
     corrupted=sum(apply(G.consensus==G.cap,1,function(x){any(x==FALSE)}),na.rm=TRUE)
     
-    out=list(y=y,this.k=this.k,G.true=G.true,G.obs=G.error,n.cov=n.cov,n.levels=n.levels,
-             n.samples=length(this.k),IDlist=list(n.cov=n.cov,IDcovs=IDcovs,ptype=ptype),
+    out=list(y=y,this.k=this.k,G.true=G.true,G.obs=G.error,n.loci=n.loci,n.levels=n.levels,
+             n.samples=length(this.k),IDlist=list(n.loci=n.loci,IDcovs=IDcovs,ptype=ptype),
              ID=ID,K=K,n=nrow(y),corrupted=corrupted,G.Obstype=G.Obstype)
     
     return(out)

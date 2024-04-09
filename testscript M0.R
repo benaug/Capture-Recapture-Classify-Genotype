@@ -29,7 +29,7 @@ n.levels <- unlist(lapply(unique.genos,nrow)) #how many loci-level genotypes per
 
 #This function creates objects to determine which classifications are 1) correct, 2) false allele, and 3) allelic dropout
 built.genos <- build.genos(unique.genos)
-ptype <- built.genos$ptype #list of length n.cov with each element being an n.levels[m] x n.levels[m] matrix containing 
+ptype <- built.genos$ptype #list of length n.loci with each element being an n.levels[m] x n.levels[m] matrix containing 
 #indicator for error type for true genotypes along rows and classified genotype along columns
 #note, "ptype" in list form is used in the data simulator, but ptypeArray is a ragged array used in nimble
 
@@ -70,19 +70,19 @@ str(gammameans)
 #Now we have the information required to simulate a data set similar to the fisher data set
 
 #First, let's decide how many loci to use. This repo assumes you have at least 2 (I didn't put in work to allow 1, can be done in theory)
-n.cov <- 9
+n.loci <- 9
 # with 9 loci, there is rarely uncertainty in ID, unless genotyping error is high. Can use fewer loci
 #here to get more uncertainty in sample IDs
 #discard unused information if you don't use them all
-if(n.cov!=9){
-  for(i in 9:(n.cov+1)){
+if(n.loci!=9){
+  for(i in 9:(n.loci+1)){
     gammameans[[i]] <- NULL
     unique.genos[[i]] <- NULL
     ptype[[i]] <- NULL
   }
 }
 n.levels <- unlist(lapply(unique.genos,nrow)) #update n.levels in case some loci discarded
-#now all lists of length "n.cov"
+#now all lists of length "n.loci"
 str(gammameans)
 str(unique.genos)
 str(ptype)
@@ -95,22 +95,22 @@ lambda.y <- 1
 K <- 5 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
-IDcovs <- vector("list",n.cov)
-for(i in 1:n.cov){
+IDcovs <- vector("list",n.loci)
+for(i in 1:n.loci){
   IDcovs[[i]] <- 1:nrow(unique.genos[[i]])
 }
-gamma <- vector("list",n.cov)
-for(i in 1:n.cov){
+gamma <- vector("list",n.loci)
+for(i in 1:n.loci){
   # gamma[[i]] <- rep(1/n.levels[i],n.levels[i]) #This simulates equal genotype frequencies
   gamma[[i]] <- gammameans[[i]] #This uses the frequencies estimated from fisher data set
 }
 
-pID <- rep(0.9,n.cov) #loci-level sample by replication amplification probabilities (controls level of missing scores in G.obs)
+pID <- rep(0.9,n.loci) #loci-level sample by replication amplification probabilities (controls level of missing scores in G.obs)
 p.geno.het <- c(0.85,0.149,0.001) #P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)
 p.geno.hom <- c(0.999,0.001) #P(correct,false allele) for homozygotes
 
 data <- sim.data(N=N,p.y=p.y,lambda.y=lambda.y,K=K,#cap-recap parameters/constants
-                  n.cov=n.cov,pID=pID,n.rep=n.rep,
+                  n.loci=n.loci,pID=pID,n.rep=n.rep,
                   p.geno.hom=p.geno.hom,p.geno.het=p.geno.het,
                   gamma=gamma,IDcovs=IDcovs,ptype=ptype)
 
@@ -141,8 +141,8 @@ if(M<N)stop("M must be larger than simulate N")
 
 #set some gamma inits. Using equal across locus-level genotypes here
 #note, gamma is a ragged matrix for use in nimble.
-gammaMat <- matrix(0,nrow=n.cov,ncol=max(n.levels))
-for(l in 1:n.cov){
+gammaMat <- matrix(0,nrow=n.loci,ncol=max(n.levels))
+for(l in 1:n.loci){
   gammaMat[l,1:n.levels[l]] <- rep(1/n.levels[l],n.levels[l])
 }
 
@@ -176,7 +176,7 @@ Niminits <- list(z=nimbuild$z,N=nimbuild$N, #must initialize N to be sum(z) for 
                  gammaMat=gammaMat)
 
 #constants for Nimble
-constants <- list(M=M,K=K,n.samples=n.samples,n.cov=n.cov,n.rep=n.rep,
+constants <- list(M=M,K=K,n.samples=n.samples,n.loci=n.loci,n.rep=n.rep,
                 na.ind=nimbuild$G.obs.NA.indicator, #tells nimble which observed genotype scores are missing
                 n.levels=n.levels,max.levels=max(n.levels),ptype=ptype)
 
@@ -206,7 +206,7 @@ conf <- configureMCMC(Rmodel,monitors=parameters, thin=nt,useConjugacy = FALSE,
 #conf$removeSampler("G.obs")
 #conf$removeSampler("y.true")
 conf$addSampler(target = paste0("y.true[1:",M,",1:",K,"]"),
-                type = 'IDSampler',control = list(M=M,K=K,n.cov=n.cov,n.samples=n.samples,
+                type = 'IDSampler',control = list(M=M,K=K,n.loci=n.loci,n.samples=n.samples,
                                                   n.rep=n.rep,this.k=nimbuild$this.k,G.obs=data$G.obs,
                                                   na.ind=nimbuild$G.obs.NA.indicator,n.levels=n.levels),
                 silent = TRUE)
@@ -217,7 +217,7 @@ conf$addSampler(target = paste0("y.true[1:",M,",1:",K,"]"),
 # # depend on G.true besides G.obs, which seems unlikely for genotypes. But if, say, G.true[,1] is "sex", and
 # # you specify that sigma varies by sex, this update is correct and the more efficient one below will not be.
 # for(i in 1:M){
-#   for(m in 1:n.cov){
+#   for(m in 1:n.loci){
 #     conf$addSampler(target = paste("G.true[",i,",",m,"]", sep=""),
 #                     type = 'GSampler',
 #                     control = list(i = i,m=m,n.levels=n.levels,n.rep=n.rep,
@@ -227,12 +227,12 @@ conf$addSampler(target = paste0("y.true[1:",M,",1:",K,"]"),
 # this is the low RAM version. No parameters can depend on G.true except G.obs
 # identify G.true nodes here. Must be in matrix with individuals down rows and loci across columns.
 # This update only works with "reps" vectorized in bugs code. Must modify this sampler if you unvectorize those.
-G.true.nodes <- Rmodel$expandNodeNames(paste0("G.true[1:",M,",1:",n.cov,"]"))
-G.obs.nodes <- Rmodel$expandNodeNames(paste0("G.obs[1:",n.samples,",1:",n.cov,",1:",n.rep,"]"))
+G.true.nodes <- Rmodel$expandNodeNames(paste0("G.true[1:",M,",1:",n.loci,"]"))
+G.obs.nodes <- Rmodel$expandNodeNames(paste0("G.obs[1:",n.samples,",1:",n.loci,",1:",n.rep,"]"))
 calcNodes <- c(G.true.nodes,G.obs.nodes)
-conf$addSampler(target = paste0("G.true[1:",M,",1:",n.cov,"]"),
+conf$addSampler(target = paste0("G.true[1:",M,",1:",n.loci,"]"),
                 type = 'GSampler2',
-                control = list(M=M,n.cov=n.cov,n.levels=n.levels,n.rep=n.rep,
+                control = list(M=M,n.loci=n.loci,n.levels=n.levels,n.rep=n.rep,
                                na.ind=nimbuild$G.obs.NA.indicator,n.samples=nimbuild$n.samples,
                                G.true.nodes=G.true.nodes,G.obs.nodes=G.obs.nodes,
                                calcNodes=calcNodes), silent = TRUE)
@@ -328,7 +328,7 @@ G.mode <- round(posterior.mode(mcmc(mvSamples2[burnin:nrow(mvSamples2),idx])))
 G.mode <- matrix(G.mode,nrow=M)
 #rearrange all G.true samples to look at range of values instead of just the mode
 G.samps <- mvSamples2[burnin:nrow(mvSamples2),idx]
-G.samps <- array(t(G.samps),dim=c(M,n.cov,nrow(G.samps)))
+G.samps <- array(t(G.samps),dim=c(M,n.loci,nrow(G.samps)))
 
 #look at posterior mode genotype of each individual (not numbered the same as in true data,
 #but numbers are the same as in IDpost)

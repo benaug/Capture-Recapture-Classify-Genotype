@@ -1,7 +1,7 @@
 init.data <- function(data=NA,M=NA,inits=inits,n.cluster.init=30,initTrue=FALSE){
   this.k <- data$this.k
   K <- data$K
-  n.cov <- data$n.cov
+  n.loci <- data$n.loci
   n.levels <- data$n.levels
   IDcovs <- data$IDlist$IDcovs
   
@@ -9,16 +9,16 @@ init.data <- function(data=NA,M=NA,inits=inits,n.cluster.init=30,initTrue=FALSE)
   G.obs <- data$G.obs
   if(!is.array(G.obs))stop("G.obs must be an array")
   n.rep <- dim(G.obs)[3]
-  n.cov <- dim(G.obs)[2]
+  n.loci <- dim(G.obs)[2]
   
   ##pull out initial values for gamma
   gammaMat <- inits$gammaMat
   
   #initialize G.obs.true, the true sample-level full categorical identities
   #initializing to the most commonly observed sample by category values across observers
-  G.obs.true <- matrix(NA,nrow=n.samples,ncol=n.cov)
+  G.obs.true <- matrix(NA,nrow=n.samples,ncol=n.loci)
   for(i in 1:n.samples){
-    for(l in 1:n.cov){
+    for(l in 1:n.loci){
       vec <- G.obs[i,l,]
       if(any(is.na(vec))){
         vec <- vec[-which(is.na(vec))]
@@ -58,7 +58,7 @@ init.data <- function(data=NA,M=NA,inits=inits,n.cluster.init=30,initTrue=FALSE)
   N <- sum(z)
   
   #Initialize G.true
-  G.true <- matrix(0, nrow=M,ncol=n.cov)
+  G.true <- matrix(0, nrow=M,ncol=n.loci)
   for(i in 1:max(ID)){
     idx <- which(ID==i)
     if(length(idx)==1){
@@ -73,7 +73,7 @@ init.data <- function(data=NA,M=NA,inits=inits,n.cluster.init=30,initTrue=FALSE)
   }
   #Fill in missing values, create indicator for them
   G.latent <- G.true==0
-  for(j in 1:n.cov){
+  for(j in 1:n.loci){
     fix <- G.true[,j]==0
     G.true[fix,j] <- sample(IDcovs[[j]],sum(fix),replace=TRUE,prob=gammaMat[j,1:n.levels[j]])
   }
@@ -85,8 +85,8 @@ init.data <- function(data=NA,M=NA,inits=inits,n.cluster.init=30,initTrue=FALSE)
   if(n.rep==1){
     stop("n.rep==1 not currently handled, won't work without space.")
   }
-  if(n.cov==1){
-    stop("n.cov==1 not currently handled")
+  if(n.loci==1){
+    stop("n.loci==1 not currently handled")
   }
   return(list(y.true=y.true,z=z,N=N,G.true=G.true,ID=ID,n.samples=n.samples,this.k=this.k,
               G.latent=G.latent,G.obs=G.obs,G.obs.NA.indicator=G.obs.NA.indicator))

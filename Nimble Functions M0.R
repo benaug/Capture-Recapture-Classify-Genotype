@@ -5,9 +5,9 @@ dHurdleVector <- nimbleFunction(
     logProb <- 0
     if(z==1){
       for(k in 1:K){
-        if(x[k]==0){ #if not captured, bernoulli
+        if(x[k]==0){ #if not captured, Bernoulli
           logProb <- logProb + dbinom(0,size=1,prob=p.y,log=TRUE)
-        }else{ #if captured, bernoulli and ZT Poisson
+        }else{ #if captured, Bernoulli and ZT Poisson
           logProb <- logProb + dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(x[k],lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
         }
       }
@@ -29,6 +29,9 @@ rHurdleVector <- nimbleFunction(
 )
 
 #sum up number of captures of each individual
+#intermediate objects that can be useful for
+#joint z-ID updates, but not used. Used to compute
+#number of guys captured, n
 Getcapcounts <- nimbleFunction(
   run = function(y.true=double(2)){
     returnType(double(1))
@@ -59,13 +62,14 @@ Getncap <- nimbleFunction(
 
 #build theta. Not as efficient as possible because we rebuild both
 #homozygotes and heterozygotes every time p.geno.het or p.geno.hom elements are updated.
+#could block those updates.
 getTheta <- nimbleFunction(
   run = function(ptype = double(3), p.geno.het = double(1), p.geno.hom = double(1), n.levels = double(1)) {
     returnType(double(3))
-    n.cov <- nimDim(ptype)[1]
+    n.loci <- nimDim(ptype)[1]
     max.levels <- nimDim(ptype)[2]
-    thetaArray <- array(NA,dim=c(n.cov,max.levels,max.levels))
-    for(m in 1:n.cov){
+    thetaArray <- array(NA,dim=c(n.loci,max.levels,max.levels))
+    for(m in 1:n.loci){
       for(l in 1:n.levels[m]){
         if(!any(ptype[m,l,1:n.levels[m]]==2)){#homozygote bc no possible allelic dropout
           tmp3 <- (1/sum(ptype[m,l,1:n.levels[m]]==3))
@@ -120,9 +124,8 @@ rcat2 <- nimbleFunction(
 )
 
 
-#------------------------------------------------------------------
-# Custom sampler to update G.true, using information in G.latent to determine proposal distribution
-#------------------------------------------------------------------
+
+#Custom sampler to update G.true, using information in G.latent to determine proposal distribution
 #Metropolis-Hastings update here allows other parameters to be a function of G.true
 #Unsure if this is the most efficient way to calculate the likelihood for the proposal.
 #I assume nimble is attempting to update the likelihood of every G.obs[i,m] and skipping
@@ -188,7 +191,7 @@ GSampler2 <- nimbleFunction(
   setup = function(model, mvSaved, target, control) {
     # Defined stuff
     M <- control$M
-    n.cov <- control$n.cov
+    n.loci <- control$n.loci
     n.levels <- control$n.levels
     n.samples <- control$n.samples
     n.rep <- control$n.rep
@@ -201,7 +204,7 @@ GSampler2 <- nimbleFunction(
     node.idx <- 1 #this is used to keep up with the correct nodes in G.true.nodes which MUST BE 1D, for each i and m
     #must loop over loci first, then individuals for this to work correctly.
     G.obs <- model$G.obs
-    for(m in 1:n.cov){
+    for(m in 1:n.loci){
       G.obs.m.idx <- seq((m-1)*n.samples+1,(m-1)*n.samples+n.samples,1) #get index for cov m for all samples
       for(i in 1:M){
         G.probs <- model$gammaMat[m,1:n.levels[m]] #pull out genotype frequencies
@@ -271,7 +274,7 @@ IDSampler <- nimbleFunction(
     M <- control$M
     K <- control$K
     G.obs <- control$G.obs
-    n.cov <- control$n.cov
+    n.loci <- control$n.loci
     n.rep <- control$n.rep
     n.levels <- control$n.levels
     n.samples <- control$n.samples
@@ -289,14 +292,14 @@ IDSampler <- nimbleFunction(
     lambda.y <- model$lambda.y[1]
     
     #Precalculate y likelihood in 2D (1D in model)
-    ll.y <- matrix(0,nrow=M,ncol=K)
+    lp.y <- matrix(0,nrow=M,ncol=K)
     for(i in 1:M){
       if(z[i]==1){
         for(k in 1:K){
           if(y.true[i,k]==0){ #if not captured
-            ll.y[i,k] <- dbinom(0,size=1,prob=p.y,log=TRUE)
+            lp.y[i,k] <- dbinom(0,size=1,prob=p.y,log=TRUE)
           }else{ #if captured
-            ll.y[i,k] <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.true[i,k],lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
+            lp.y[i,k] <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.true[i,k],lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
           }
         }
       }
@@ -307,10 +310,10 @@ IDSampler <- nimbleFunction(
       # y.cand <- y.true #necessary for every sample for correct proposal probs
       #G.probs proportional to genotyping error likelihood over all loci and reps
       lp.G <- rep(0,M)
-      lp.y.total <- rep(sum(ll.y[,this.k[l]]),M)*z
+      lp.y.total <- rep(sum(lp.y[,this.k[l]]),M)*z
       for(i in 1:M){
         if(z[i]==1){
-          for(m in 1:n.cov){
+          for(m in 1:n.loci){
             for(rep in 1:n.rep){
               if(na.ind[l,m,rep]==FALSE){ #if observed
                 lp.G[i] <- lp.G[i] + log(theta[m,G.true[i,m],G.obs[l,m,rep]])
@@ -335,8 +338,8 @@ IDSampler <- nimbleFunction(
             }else{ #if captured
               lp.tmp2 <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.tmp2,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
             }
-            #add likelihood difference for each guy from current. (double check this)
-            lp.y.total[i] <- lp.y.total[i] + (ll.y[i,this.k[l]] - lp.tmp1) + (ll.y[i,this.k[l]] - lp.tmp2)
+            #add likelihood difference for each guy from current.
+            lp.y.total[i] <- lp.y.total[i] + (lp.y[ID[l],this.k[l]] - lp.tmp1) + (lp.y[i,this.k[l]] - lp.tmp2)
           }
         }else{ #can't propose this guy if z==0
           lp.y.total[i] <- lp.G[i] <- -Inf
@@ -354,21 +357,21 @@ IDSampler <- nimbleFunction(
         #update y.true
         y.true[swapped[1],this.k[l]] <- y.true[swapped[1],this.k[l]]-1
         y.true[swapped[2],this.k[l]] <- y.true[swapped[2],this.k[l]]+1
-        ##update ll.y
+        ##update lp.y
         for(i in 1:2){
           if(y.true[swapped[i],this.k[l]]==0){ #if not captured
-            ll.y[swapped[i],this.k[l]] <- dbinom(0,size=1,prob=p.y,log=TRUE)
+            lp.y[swapped[i],this.k[l]] <- dbinom(0,size=1,prob=p.y,log=TRUE)
           }else{ #if captured
-            ll.y[swapped[i],this.k[l]] <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.true[swapped[i],this.k[l]],lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
+            lp.y[swapped[i],this.k[l]] <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.true[swapped[i],this.k[l]],lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
           }
         }
       }
     }
     
     #update G.latent after ID changes
-    G.latent <- matrix(TRUE,nrow=M,ncol=n.cov)
+    G.latent <- matrix(TRUE,nrow=M,ncol=n.loci)
     for(l in 1:n.samples){
-      for(m in 1:n.cov){
+      for(m in 1:n.loci){
         for(rep in 1:n.rep){
           if(na.ind[l,m,rep]==FALSE){ #if this sample is not latent
             G.latent[ID[l],m] <- FALSE #then its ID is not latent
@@ -381,6 +384,9 @@ IDSampler <- nimbleFunction(
     model$ID <<- ID
     model$G.latent <<- G.latent
     model$calculate(calcNodes) #update dependencies, likelihoods
+    #Need to update ID in mvSaved manually, can't calculate. 
+    #only required if using again in custom update, which we aren't
+    mvSaved["ID",1] <<- model[["ID"]]
     copy(from = model, to = mvSaved, row = 1, nodes = calcNodes, logProb = TRUE)
   },
   methods = list( reset = function () {} )
