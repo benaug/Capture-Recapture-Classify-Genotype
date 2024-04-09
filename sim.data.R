@@ -61,26 +61,7 @@ sim.data <-
         }
       }
     }
-    
-    
-    
-    # idx <- 1
-    # A=array(0,dim=c(dim(y),n.samples))  #configuration matrix: indicator matrix for which individual i occassion j  trap k corresponds to sample l. used to convert corrupt IDcovs to corrupt capture history
-    # for(i in 1:length(caught)){ #loop through inds (uncaptured already removed)
-    #   for(j in 1:J){ #then traps
-    #     for(k in 1:K){ #then occasions
-    #       if(y[i,j,k]>0){ #is there at least one sample here?
-    #         for(l in 1:y[i,j,k]){ #then samples
-    #           G.cap[idx,]=G.true[i,]
-    #           A[i,j,k,idx]=1
-    #           idx=idx+1
-    #         }
-    #       }
-    #     }
-    #   }
-    # }
-    # ycap=aperm(apply(A,c(2,3,4),sum),c(3,1,2))
-    
+
     #double check that observed data can reconstruct true data
     y.obs <- matrix(0,max(ID),K)
     for(l in 1:n.samples){
@@ -91,61 +72,61 @@ sim.data <-
     }
     theta=vector("list",n.loci)
     for(m in 1:n.loci){
-      theta[[m]]=matrix(0,nrow=n.levels[m],ncol=n.levels[m])
+      theta[[m]] <- matrix(0,nrow=n.levels[m],ncol=n.levels[m])
       for(l in 1:n.levels[m]){
         if(!any(ptype[[m]][l,]==2)){#homozygote
-          theta[[m]][l,which(ptype[[m]][l,]==1)]=(p.geno.hom[1])
-          theta[[m]][l,which(ptype[[m]][l,]==3)]=(p.geno.hom[2])*(1/sum(ptype[[m]][l,]==3))
+          theta[[m]][l,which(ptype[[m]][l,]==1)] <- (p.geno.hom[1])
+          theta[[m]][l,which(ptype[[m]][l,]==3)] <- (p.geno.hom[2])*(1/sum(ptype[[m]][l,]==3))
         }else{
-          theta[[m]][l,which(ptype[[m]][l,]==1)]=(p.geno.het[1])
-          theta[[m]][l,which(ptype[[m]][l,]==2)]=(p.geno.het[2])*(1/sum(ptype[[m]][l,]==2))
-          theta[[m]][l,which(ptype[[m]][l,]==3)]=(p.geno.het[3])*(1/sum(ptype[[m]][l,]==3))
+          theta[[m]][l,which(ptype[[m]][l,]==1)] <- (p.geno.het[1])
+          theta[[m]][l,which(ptype[[m]][l,]==2)] <- (p.geno.het[2])*(1/sum(ptype[[m]][l,]==2))
+          theta[[m]][l,which(ptype[[m]][l,]==3)] <- (p.geno.het[3])*(1/sum(ptype[[m]][l,]==3))
         }
       }
     }
     
     #observation error
-    G.error=array(NA,dim=c(n.samples,n.loci,n.rep))
+    G.error <- array(NA,dim=c(n.samples,n.loci,n.rep))
     for(k in 1:n.rep){
-      G.error[,,k]=G.cap
+      G.error[,,k] <- G.cap
       for(l in 1:n.loci){
         for(i in 1:n.samples){
           if(rbinom(1,1,pID[l])==1){
             for(j in 1:n.levels[l]){
               if(G.cap[i,l]==j){
-                G.error[i,l,k]=sample(IDcovs[[l]],1,prob=theta[[l]][j,])
+                G.error[i,l,k] <- sample(IDcovs[[l]],1,prob=theta[[l]][j,])
               }
             }
           }else{
-            G.error[i,l,k]=NA
+            G.error[i,l,k] <- NA
           }
         }
       }
     }
     #find errors that occurred
-    G.Obstype=array(0,dim=c(n.samples,n.loci,n.rep))
+    G.Obstype <- array(0,dim=c(n.samples,n.loci,n.rep))
     for(k in 1:n.rep){
       for(l in 1:n.loci){
         for(i in 1:n.samples){
           if(is.na(G.error[i,l,k]))next#is missing
           if(G.error[i,l,k]==G.cap[i,l]){#is correct
-            G.Obstype[i,l,k]=1
+            G.Obstype[i,l,k] <- 1
           }else{#is an error
-            G.Obstype[i,l,k]=ptype[[l]][G.error[i,l,k],G.cap[i,l]]
+            G.Obstype[i,l,k] <- ptype[[l]][G.error[i,l,k],G.cap[i,l]]
           }
         }
       }
     }
-    getmode = function(v) {
-      uniqv = unique(v)
+    getmode  <-  function(v) {
+      uniqv  <-  unique(v)
       uniqv[which.max(tabulate(match(v, uniqv)))]
     }
     #generate a crude consensus genotype
-    G.consensus=apply(G.error,c(1,2),function(x){getmode(x[x!=0])})
+    G.consensus <- apply(G.error,c(1,2),function(x){getmode(x[x!=0])})
     #how many of the crude consensus genotypes are corrupted?
-    corrupted=sum(apply(G.consensus==G.cap,1,function(x){any(x==FALSE)}),na.rm=TRUE)
+    corrupted <- sum(apply(G.consensus==G.cap,1,function(x){any(x==FALSE)}),na.rm=TRUE)
     
-    out=list(y=y,this.k=this.k,G.true=G.true,G.obs=G.error,n.loci=n.loci,n.levels=n.levels,
+    out <- list(y=y,this.k=this.k,G.true=G.true,G.obs=G.error,n.loci=n.loci,n.levels=n.levels,
              n.samples=length(this.k),IDlist=list(n.loci=n.loci,IDcovs=IDcovs,ptype=ptype),
              ID=ID,K=K,n=nrow(y),corrupted=corrupted,G.Obstype=G.Obstype)
     
