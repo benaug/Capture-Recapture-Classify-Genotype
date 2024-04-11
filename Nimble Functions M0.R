@@ -123,14 +123,12 @@ rcat2 <- nimbleFunction(
   }
 )
 
-
-
 #Custom sampler to update G.true, using information in G.latent to determine proposal distribution
 #Metropolis-Hastings update here allows other parameters to be a function of G.true
 #Unsure if this is the most efficient way to calculate the likelihood for the proposal.
-#I assume nimble is attempting to update the likelihood of every G.obs[i,m] and skipping
+#I assume nimble is attempting to update the likelihood of every G.obs[l,m,rep] and skipping
 #the samples not involved. But we know which ones are involved. "these.samps" below.
-#Anyways, perhaps an inefficiency here.
+#Anyways, perhaps an inefficiency here. This is resolved in GSampler2 below.
 GSampler <- nimbleFunction(
   contains = sampler_BASE,
   setup = function(model, mvSaved, target, control) {

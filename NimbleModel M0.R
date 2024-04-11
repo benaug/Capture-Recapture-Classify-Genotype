@@ -1,7 +1,7 @@
 NimModel <- nimbleCode({
   ###priors##
   #process model
-  lambda.N ~ dunif(0,300) #expected abundance
+  log(lambda.N) ~ dnorm(0,sd=10) #expected abundance
   #genotype frequency priors
   for(m in 1:n.loci){
     for(k in 1:n.levels[m]){
@@ -12,7 +12,7 @@ NimModel <- nimbleCode({
   }
   
   #observation model - Bernoulli detection, zero-truncated poisson samples|detection
-  p.y ~ dunif(0,1) #detection probability
+  logit(p.y) ~ dlogis(0,1) #detection probability
   lambda.y ~ dunif(0,5) #parameter for number of samples|detection
   
   #genotype observation process

@@ -194,7 +194,7 @@ start.time <- Sys.time()
 Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FALSE,inits=Niminits)
 #tell nimble which nodes to configure so we don't waste time for samplers we will replace below
 #if you add parameters to the model file, need to add them here.
-config.nodes <- c('lambda.N','p.y','lambda.y','p.geno.het','p.geno.hom','gammaMat')
+config.nodes <- c('log_lambda.N','logit_p.y','lambda.y','p.geno.het','p.geno.hom','gammaMat')
 # config.nodes <- c()
 conf <- configureMCMC(Rmodel,monitors=parameters, thin=nt,useConjugacy = FALSE,
                       monitors2=parameters2,thin2=nt2,
@@ -237,8 +237,10 @@ conf$addSampler(target = paste0("G.true[1:",M,",1:",n.loci,"]"),
                                G.true.nodes=G.true.nodes,G.obs.nodes=G.obs.nodes,
                                calcNodes=calcNodes), silent = TRUE)
 
-###*required* sampler replacement for "alternative data augmentation" z/ID update (using distributions on N/y.true)
-z.ups <- round(M*0.25) # how many N/z proposals per iteration? Not sure what is optimal, setting to 25% of M here.
+###required sampler replacement for "alternative data augmentation" z/ID update (using distributions on N/y.true)
+# how many N/z proposals per iteration? Not sure what is optimal, setting to 50% of M here.
+# optimal should be higher when uncertainty in N is higher.
+z.ups <- round(M*0.5) 
 # conf$removeSampler("N")
 #nodes used for update, calcNodes + z nodes
 y.nodes <- Rmodel$expandNodeNames(paste("y.true[1:",M,",1:",K,"]"))
@@ -254,8 +256,8 @@ conf$addSampler(target = c("N"),
 
 #can block these if highly correlated.
 #often works best if you use both the independent and block updates, so maybe don't remove the independent updates.
-# conf$removeSampler(c("lambda.N","p.y"))
-conf$addSampler(target = c("lambda.N","p.y"),
+# conf$removeSampler(c("log_lambda.N","logit_p.y"))
+conf$addSampler(target = c("log_lambda.N","logit_p.y"),
 type = 'RW_block',control=list(adaptive=TRUE,tries=1),silent = TRUE)
 
 # Build and compile

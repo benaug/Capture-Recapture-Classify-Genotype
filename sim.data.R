@@ -1,7 +1,7 @@
 sim.data <-
   function(N=NA,p.y=NA,lambda.y=NA,K=NA,p.geno.het=NA,
            p.geno.hom=NA,n.loci=NA,n.rep=NA,
-           pID=NA,gamma=NA,IDcovs=NA,ptype=NA){
+           pID=NA,gamma=NA,IDcovs=NA,ptype=NA,seed=NA){
     #error checks
     if(length(gamma)!=n.loci)stop("gamma must be of length n.loci")
     for(l in 1:n.loci){
@@ -12,6 +12,10 @@ sim.data <-
     if(sum(p.geno.het)!=1)stop("p.geno.het must sum to 1")
     if(length(p.geno.hom)!=2)stop("p.geno.hom must be of length 2")
     if(length(p.geno.het)!=3)warning("p.geno.het must be of length 3 unless simulating SNPs")
+    
+    if(!is.na(seed)){
+      set.seed(seed)
+    }
     
     #simulate IDcovs
     n.levels <- unlist(lapply(gamma,length))
@@ -128,7 +132,7 @@ sim.data <-
     
     out <- list(y=y,this.k=this.k,G.true=G.true,G.obs=G.error,n.loci=n.loci,n.levels=n.levels,
              n.samples=length(this.k),IDlist=list(n.loci=n.loci,IDcovs=IDcovs,ptype=ptype),
-             ID=ID,K=K,n=nrow(y),corrupted=corrupted,G.Obstype=G.Obstype)
+             ID=ID,K=K,n=nrow(y),corrupted=corrupted,G.Obstype=G.Obstype,seed=seed)
     
     return(out)
   }
