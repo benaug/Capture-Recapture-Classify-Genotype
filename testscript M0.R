@@ -88,10 +88,10 @@ str(unique.genos)
 str(ptype)
 n.levels
 
-#Normal SCR stuff
-N <- 75
-p.y <- 0.2
-lambda.y <- 1
+#Normal capture-recapture stuff
+N <- 75 #realized abundance
+p.y <- 0.2 #capture probability
+lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
 K <- 5 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
