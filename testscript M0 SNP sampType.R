@@ -1,12 +1,14 @@
+#This version is for SNPs. I've never run it by a geneticist, so tell me if it needs modification
+#I'm assuming the only heterozygote, 1-2, can be observed as 1-1 and 2-2 (allelic dropout), and
+#then each homozygote 1-1, and 2-2, could be observed as a false allele, 1-2, 1-1 (for true 2-2), or 2-2 (for true 1-1)
+#I'm assuming the false allele rate is the same for 1-1 and 2-2, and all error rates are the same over all SNP loci
+
 #This version allows genotyping error rates to vary by categorical sample covariates
 #continuous covariates can be done in practice, but very slow-need a theta matrix for
 #every sample, rather than one for each category level
 
-#In genoSPIM, the genotyping error settings below work great, and they appear to work well
-#here, too, but with more uncertainty in ID. However, I expect you will have a bad time
-#if you don't have a good number of higher quality samples when using low quality samples
-#with low amplification rates and high genotyping error rates. Using spatial information
-#helps disproportionately more in these scenarios.
+#I have the data simulator set to only 15 SNPs. If SNPs not informative enough
+#(number of SNPs, number of reps, amplification rate, genotyping error rates), you may get positive bias
 
 #Don't try to add time or individual detection effects in M0 scripts
 #unless you make corresponding changes to custom updates
@@ -17,94 +19,32 @@ source("sim.data.sampType.R")
 source("init.data.R")
 source("build.genos.R")
 source("map.genos.R")
-source("NimbleModel M0 sampType.R")
-source("Nimble Functions M0 sampType.R")
+source("NimbleModel M0 SNP sampType.R")
+source("Nimble Functions M0 SNP sampType.R")
 
 #must run this line for nimble to do what we want
 nimbleOptions(determinePredictiveNodesInModel = FALSE)
 
-#We will use the fisher data set parameter estimates from Augustine et al. (2020)
-#to specify the genetic portion of the simulation settings
+#First, let's structure some SNPs.
+n.loci <- 15 #number of SNP loci, 15 will leave uncertainty in ID with settings below
+unique.genos <- vector("list")
+for(m in 1:n.loci){
+  unique.genos[[m]] <- matrix(c(1,1,2,2,1,2),nrow=3,byrow=TRUE)
+}
+unique.genos[[1]] #11, 22, 12
 
-#This is a list of locus-level genotypes. Each list element corresponds to a locus
-#and contains a matrix of all possible combinations of locus-level genotypes, one per row.
-#the order of alleles in a genotype does not matter
-load("unique.genos.RData")
-str(unique.genos)
-#A real data set should enumerate the observed loci-level genotypes in the order listed here,
-#e.g. 152-152 is 1, 152-154 is 2, 152-156 is 3, etc.
-unique.genos[[1]] #1st loci
-
-n.levels <- unlist(lapply(unique.genos,nrow)) #how many loci-level genotypes per locus?
 
 #This function creates objects to determine which classifications are 1) correct, 2) false allele, and 3) allelic dropout
 built.genos <- build.genos(unique.genos)
-ptype <- built.genos$ptype #list of length n.loci with each element being an n.levels[m] x n.levels[m] matrix containing 
+ptype <- built.genos$ptype #list of length n.loci with each element being an 3 x 3 matrix containing 
 #indicator for error type for true genotypes along rows and classified genotype along columns
-#note, "ptype" in list form is used in the data simulator, but ptypeArray is a ragged array used in nimble
-
-#####example 1: true homozygote:
-#the first genotype at locus 1 is 152-152. Because it is homozygous, there cannot be allelic dropout.
-unique.genos[[1]][1,]
-#Now, looking at ptype for true locus-level genotype 1 at locus 1:
-#we see only a correct classification or a false allele are possible.
-ptype[[1]][1,]
-
-#there is only 1 correct classification event, indicated with a 1:
-unique.genos[[1]][ptype[[1]][1,]==1,]
-
-#here are the classifications that are the result of false alleles (everything that is not correct)
-unique.genos[[1]][ptype[[1]][1,]==3,]
-
-#####example 2: true heterozygote:
-#the second genotype at locus 1 is 152-154. Because it is heterozygous, there can be allelic dropout or false alleles
-unique.genos[[1]][2,]
-#Now, looking at ptype for true locus-level genotype 2 at locus 1:
-#we see correct classification, allelic dropout, or false allele are possible.
-ptype[[1]][2,]
-
-#there is only 1 correct classification event, indicated with a 1:
-unique.genos[[1]][ptype[[1]][2,]==1,]
-
-#here are the classifications that are the result of allelic dropout (152 or 154 can drop out)
-unique.genos[[1]][ptype[[1]][2,]==2,]
-
-#here are the classifications that are the result of false alleles
-unique.genos[[1]][ptype[[1]][2,]==3,]
-
-#OK, moving on to the genotype frequencies.
-load("gammameans.RData")#loci-level genotype frequency estimates for fisher data set
-#These are the frequencies of each locus-level genotype at each locus
-str(gammameans)
-
-#Now we have the information required to simulate a data set similar to the fisher data set
-
-#First, let's decide how many loci to use. This repo assumes you have at least 2 (I didn't put in work to allow 1, can be done in theory)
-#with 9 loci, there is rarely uncertainty in ID, unless genotyping error is high. Can use fewer loci
-#here to get more uncertainty in sample IDs
-n.loci <- 9
-
-#discard unused information if you don't use them all
-if(n.loci!=9){
-  for(i in 9:(n.loci+1)){
-    gammameans[[i]] <- NULL
-    unique.genos[[i]] <- NULL
-    ptype[[i]] <- NULL
-  }
-}
-n.levels <- unlist(lapply(unique.genos,nrow)) #update n.levels in case some loci discarded
-#now all lists of length "n.loci"
-str(gammameans)
-str(unique.genos)
-str(ptype)
-n.levels
 
 #Normal capture-recapture stuff
 N <- 75 #realized abundance
 p.y <- 0.2 #capture probability
 lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
 K <- 5 #number of capture occasions
-n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
+n.rep <- 2 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
 for(i in 1:n.loci){
@@ -112,30 +52,32 @@ for(i in 1:n.loci){
 }
 gamma <- vector("list",n.loci)
 for(i in 1:n.loci){
-  # gamma[[i]] <- rep(1/n.levels[i],n.levels[i]) #This simulates equal genotype frequencies
-  gamma[[i]] <- gammameans[[i]] #This uses the frequencies estimated from fisher data set
+  #This simulates equal genotype frequencies. I don't have SNP data to use, probably not realistic
+  gamma[[i]] <- rep(1/3,3)
 }
 
 #Genotype observation process parameters. Can have failed amplification (missing completely at random) and genotyping error
-#using estimates from fisher data set below
-samp.levels <- 2 #number of sample type covariates. Each type has it's own genotyping error rates.
-#p.amp below is for each sample type in this script instead of each loci as in others
+#Difference from microsat code here: true heterozygotes don't have false allele events (there is only 1 heterozygote!)
 p.amp <- c(0.999,0.25) #sample by replication amplification probabilities (controls level of missing scores in G.obs)
+samp.levels <- 2 #number of sample type covariates. Each type has it's own genotyping error rates.
 p.geno.het <- vector("list",samp.levels)
 p.geno.hom <- vector("list",samp.levels)
-#P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)
-p.geno.het[[1]] <- c(0.806,0.185,0.009) 
-p.geno.het[[2]] <- c(0.489,0.496,0.015)
+#P(correct, allelic dropout) for heterozygotes
+p.geno.het[[1]] <- c(0.95,0.05) #high quality
+p.geno.het[[2]] <- c(0.65,0.35) #low quality
 #P(correct,false allele) for homozygotes
-p.geno.hom[[1]] <- c(0.994,0.006)
-p.geno.hom[[2]] <- c(0.999,0.001)
+p.geno.hom[[1]] <- c(0.95,0.05) #high quality
+p.geno.hom[[2]] <- c(0.65,0.35) #low quality
+
 pi.samp.type <- c(0.52,0.48) #frequencies of each sample type
 
+
+
+#can use same data simulator for MSATs for SNPs, will give you a warning that p.geno.het is only of length 2.
 data <- sim.data.sampType(N=N,p.y=p.y,lambda.y=lambda.y,K=K,#cap-recap parameters/constants
                   n.loci=n.loci,p.amp=p.amp,n.rep=n.rep,
                   p.geno.hom=p.geno.hom,p.geno.het=p.geno.het,
-                  gamma=gamma,IDcovs=IDcovs,ptype=ptype,
-                  pi.samp.type=pi.samp.type)
+                  gamma=gamma,IDcovs=IDcovs,ptype=ptype,pi.samp.type=pi.samp.type)
 
 #The observed data are 
 #1) the occasion of every "count member". E.g., a count of 3 
@@ -164,9 +106,9 @@ if(M<N)stop("M must be larger than simulate N")
 
 #set some gamma inits. Using equal across locus-level genotypes here
 #note, gamma is a ragged matrix for use in nimble.
-gammaMat <- matrix(0,nrow=n.loci,ncol=max(n.levels))
+gammaMat <- matrix(0,nrow=n.loci,ncol=3)
 for(l in 1:n.loci){
-  gammaMat[l,1:n.levels[l]] <- rep(1/n.levels[l],n.levels[l])
+  gammaMat[l,1:3] <- rep(1/3,3)
 }
 
 #provide some ballpark inits for gamma to help initialize data
@@ -176,7 +118,8 @@ nimbuild <- init.data(data=data,M=M,inits=inits,initTrue=FALSE) #can initialize 
 n.samples <- data$n.samples
 
 #ptype is a ragged array that tells use which genotype classifications are correct, allelic dropout, or false alleles
-ptype <- built.genos$ptypeArray
+#for SNPs, these are the same for all loci, so we'll convert to a matrix
+ptypeMatrix <- built.genos$ptypeArray[1,,]
 
 #OK, what is the data we use to fit the model?
 #1) data$G.obs, the observed genotypes
@@ -191,12 +134,12 @@ Nimdata <- list(G.obs=nimbuild$G.obs,samp.type=data$samp.type) #adding sample ty
 #inits for nimble
 #Without spatial information, the possibility of false alleles makes convergence difficult with sparse G.obs
 #Helps to provide ballpark inits for p.geno.het especially, providing them for p.geno.hom here, too.
-#essentially, if you initialize the false allele probability near 1, the samples will be allocated very poorly
-#on the first iterations and the false allele probability can get stuck near 1.
-p.geno.het.init <- matrix(NA,nrow=2,ncol=3)
+#Comments above are likely less relevant to SNPs where heterozygotes can't have a false positive,
+#but setting some ballpark inits here.
+p.geno.het.init <- matrix(NA,nrow=2,ncol=2)
 p.geno.hom.init <- matrix(NA,nrow=2,ncol=2)
-p.geno.het.init[1,] <- c(0.9,0.05,0.05)
-p.geno.het.init[2,] <- c(0.9,0.05,0.05)
+p.geno.het.init[1,] <- c(0.9,0.1)
+p.geno.het.init[2,] <- c(0.9,0.1)
 p.geno.hom.init[1,] <- c(0.9,0.1)
 p.geno.hom.init[2,] <- c(0.9,0.1)
 
@@ -209,7 +152,7 @@ Niminits <- list(z=nimbuild$z,N=nimbuild$N, #must initialize N to be sum(z) for 
 #constants for Nimble
 constants <- list(M=M,K=K,n.samples=n.samples,n.loci=n.loci,n.rep=n.rep,
                 na.ind=nimbuild$G.obs.NA.indicator, #tells nimble which observed genotype scores are missing
-                n.levels=n.levels,max.levels=max(n.levels),ptype=ptype,samp.levels=samp.levels)
+               ptype=ptypeMatrix,samp.levels=samp.levels)
 
 # set parameters to monitor
 parameters <- c('lambda.N','p.y','lambda.y','N','n','p.geno.het','p.geno.hom','gammaMat')
@@ -239,7 +182,7 @@ conf <- configureMCMC(Rmodel,monitors=parameters, thin=nt,useConjugacy = FALSE,
 conf$addSampler(target = paste0("y.true[1:",M,",1:",K,"]"),
                 type = 'IDSampler',control = list(M=M,K=K,n.loci=n.loci,n.samples=n.samples,samp.type=data$samp.type,
                                                   n.rep=n.rep,this.k=nimbuild$this.k,G.obs=data$G.obs,
-                                                  na.ind=nimbuild$G.obs.NA.indicator,n.levels=n.levels),
+                                                  na.ind=nimbuild$G.obs.NA.indicator),
                 silent = TRUE)
 
 #replace default G.true sampler, which is not correct, with custom sampler for G.true, "GSampler"
@@ -251,7 +194,7 @@ conf$addSampler(target = paste0("y.true[1:",M,",1:",K,"]"),
 #   for(m in 1:n.loci){
 #     conf$addSampler(target = paste("G.true[",i,",",m,"]", sep=""),
 #                     type = 'GSampler',
-#                     control = list(i = i,m=m,n.levels=n.levels,n.rep=n.rep,samp.type=data$samp.type,
+#                     control = list(i = i,m=m,n.rep=n.rep,samp.type=data$samp.type,
 #                                    na.ind=nimbuild$G.obs.NA.indicator[,m,]), silent = TRUE)
 #   }
 # }
@@ -263,7 +206,7 @@ G.obs.nodes <- Rmodel$expandNodeNames(paste0("G.obs[1:",n.samples,",1:",n.loci,"
 calcNodes <- c(G.true.nodes,G.obs.nodes)
 conf$addSampler(target = paste0("G.true[1:",M,",1:",n.loci,"]"),
                 type = 'GSampler2',
-                control = list(M=M,n.loci=n.loci,n.levels=n.levels,n.rep=n.rep,samp.type=data$samp.type,
+                control = list(M=M,n.loci=n.loci,n.rep=n.rep,samp.type=data$samp.type,
                                na.ind=nimbuild$G.obs.NA.indicator,n.samples=nimbuild$n.samples,
                                G.true.nodes=G.true.nodes,G.obs.nodes=G.obs.nodes,
                                calcNodes=calcNodes), silent = TRUE)
@@ -346,6 +289,7 @@ for(i in 1:n.samples){
 }
 
 this.samp <- 1 #sample number to look at
+# this.samp <- this.samp + 1
 pair.probs[this.samp,] #probability this sample is from same individual as all other samples
 pair.probs[this.samp,data$ID==data$ID[this.samp]] #for simulated data, these are the other samples truly from same individual
 
