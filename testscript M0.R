@@ -1,5 +1,5 @@
 #Don't try to add time or individual detection effects in M0 scripts
-#unless you make corresponding changes to custom updates (I'll get to it)
+#unless you make corresponding changes to custom updates
 
 library(coda)
 library(nimble)
@@ -106,6 +106,7 @@ for(i in 1:n.loci){
   gamma[[i]] <- gammameans[[i]] #This uses the frequencies estimated from fisher data set
 }
 
+#Genotype observation process parameters. Can have failed amplification (missing completely at random) and genotyping error
 p.amp <- rep(0.9,n.loci) #loci-level sample by replication amplification probabilities (controls level of missing scores in G.obs)
 p.geno.het <- c(0.85,0.149,0.001) #P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)
 p.geno.hom <- c(0.999,0.001) #P(correct,false allele) for homozygotes
@@ -154,7 +155,7 @@ nimbuild <- init.data(data=data,M=M,inits=inits,initTrue=FALSE) #can initialize 
 n.samples <- data$n.samples
 
 #ptype is a ragged array that tells use which genotype classifications are correct, allelic dropout, or false alleles
-ptype  <-  built.genos$ptypeArray
+ptype <- built.genos$ptypeArray
 
 #OK, what is the data we use to fit the model?
 #1) data$G.obs, the observed genotypes
@@ -167,9 +168,9 @@ ptype  <-  built.genos$ptypeArray
 Nimdata <- list(G.obs=nimbuild$G.obs)
 
 #inits for nimble
-#Without spatial information, the possiblity of false alleles makes convergence difficult with sparse G.obs
+#Without spatial information, the possibility of false alleles makes convergence difficult with sparse G.obs
 #Helps to provide ballpark inits for p.geno.het especially, providing them for p.geno.hom here, too.
-#essentially, if you initilize the false allele probability near 1, the samples will be allocated very poorly
+#essentially, if you initialize the false allele probability near 1, the samples will be allocated very poorly
 #on the first iterations and the false allele probability can get stuck near 1.
 Niminits <- list(z=nimbuild$z,N=nimbuild$N, #must initialize N to be sum(z) for this data augmentation approach
                  G.true=nimbuild$G.true,ID=nimbuild$ID,capcounts=rowSums(nimbuild$y.true),

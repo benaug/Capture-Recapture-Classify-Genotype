@@ -1,32 +1,24 @@
-#Don't try to add time effects in Mh scripts
+#This version allows genotyping error rates to vary by categorical sample covariates
+#continuous covariates can be done in practice, but very slow-need a theta matrix for
+#every sample, rather than one for each category level
+
+#In genoSPIM, the genotyping error settings below work great, and they appear to work well
+#here, too, but with more uncertainty in ID. However, I expect you will have a bad time
+#if you don't have a good number of higher quality samples when using low quality samples
+#with low amplification rates and high genotyping error rates. Using spatial information
+#helps disproportionately more in these scenarios.
+
+#Don't try to add time or individual detection effects in M0 scripts
 #unless you make corresponding changes to custom updates
-#Current individual heterogeneity model is logit-normal
-#Can change model for individual heterogeneity in current files, 
-#e.g., finite mixture. #Can't add individual heterogeneity in 
-#lambda.y unless you modify custom updates
-
-#can try centered and non-centered parameterization, both in model file
-#I haven't explored this fully, but it appears non-centered
-#should generally be used. With settings below, centered shows
-#funneling behavior, terrible mixing, positive bias.
-
-#If individual heterogeneity is largely due to space, and you have
-#spatial information recorded, maybe try genoSPIM.
-
-#If you add/remove parameters in model file, make sure you
-#make same additions/removals in config.nodes below.
-
-#Mh seems to work well enough with the capture-recapture settings
-#below. If you simulate more sparse capture data, it may not work so well.
 
 library(coda)
 library(nimble)
-source("sim.data.Mh.R")
+source("sim.data.sampType.R")
 source("init.data.R")
 source("build.genos.R")
 source("map.genos.R")
-source("NimbleModel Mh.R")
-source("Nimble Functions Mh.R")
+source("NimbleModel M0 sampType.R")
+source("Nimble Functions M0 sampType.R")
 
 #must run this line for nimble to do what we want
 nimbleOptions(determinePredictiveNodesInModel = FALSE)
@@ -109,38 +101,41 @@ n.levels
 
 #Normal capture-recapture stuff
 N <- 75 #realized abundance
-beta0.p.y <- qlogis(0.1) #mean capture probability converted to an intecept on logit scale
-sd.p.y <- 0.25
+p.y <- 0.2 #capture probability
 lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
-K <- 10 #number of capture occasions
+K <- 5 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
-#see what individual heterogeneity distribution looks like
-p.y.tmp <- plogis(rnorm(1000,beta0.p.y,sd.p.y))
-#per occasion
-hist(p.y.tmp)
-#cumulative p
-hist(1-(1-p.y.tmp)^K)
-
-IDcovs <- vector("list",n.loci)
+IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
 for(i in 1:n.loci){
   IDcovs[[i]] <- 1:nrow(unique.genos[[i]])
 }
-gamma <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
+gamma <- vector("list",n.loci)
 for(i in 1:n.loci){
   # gamma[[i]] <- rep(1/n.levels[i],n.levels[i]) #This simulates equal genotype frequencies
   gamma[[i]] <- gammameans[[i]] #This uses the frequencies estimated from fisher data set
 }
 
 #Genotype observation process parameters. Can have failed amplification (missing completely at random) and genotyping error
-p.amp <- rep(0.9,n.loci) #loci-level sample by replication amplification probabilities (controls level of missing scores in G.obs)
-p.geno.het <- c(0.85,0.149,0.001) #P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)
-p.geno.hom <- c(0.999,0.001) #P(correct,false allele) for homozygotes
+#using estimates from fisher data set below
+samp.levels <- 2 #number of sample type covariates. Each type has it's own genotyping error rates.
+#p.amp below is for each sample type in this script instead of each loci as in others
+p.amp <- c(0.999,0.25) #sample by replication amplification probabilities (controls level of missing scores in G.obs)
+p.geno.het <- vector("list",samp.levels)
+p.geno.hom <- vector("list",samp.levels)
+#P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)
+p.geno.het[[1]] <- c(0.806,0.185,0.009) 
+p.geno.het[[2]] <- c(0.489,0.496,0.015)
+#P(correct,false allele) for homozygotes
+p.geno.hom[[1]] <- c(0.994,0.006)
+p.geno.hom[[2]] <- c(0.999,0.001)
+pi.samp.type <- c(0.52,0.48) #frequencies of each sample type
 
-data <- sim.data.Mh(N=N,beta0.p.y=beta0.p.y,sd.p.y=sd.p.y,lambda.y=lambda.y,K=K,#cap-recap parameters/constants
+data <- sim.data.sampType(N=N,p.y=p.y,lambda.y=lambda.y,K=K,#cap-recap parameters/constants
                   n.loci=n.loci,p.amp=p.amp,n.rep=n.rep,
                   p.geno.hom=p.geno.hom,p.geno.het=p.geno.het,
-                  gamma=gamma,IDcovs=IDcovs,ptype=ptype)
+                  gamma=gamma,IDcovs=IDcovs,ptype=ptype,
+                  pi.samp.type=pi.samp.type)
 
 #The observed data are 
 #1) the occasion of every "count member". E.g., a count of 3 
@@ -164,7 +159,7 @@ for(i in 1:length(these.samps)){
 
 #Data augmentation level - must be larger than N. 
 #If N ever hits M during MCMC after convergence, raise M and start over
-M <- 200
+M <- 150
 if(M<N)stop("M must be larger than simulate N")
 
 #set some gamma inits. Using equal across locus-level genotypes here
@@ -191,25 +186,33 @@ ptype <- built.genos$ptypeArray
 #as inits, and update them on each MCMC iteration
 
 #supply data to nimble
-Nimdata <- list(G.obs=nimbuild$G.obs)
+Nimdata <- list(G.obs=nimbuild$G.obs,samp.type=data$samp.type) #adding sample covariates here
 
 #inits for nimble
-#Without spatial information, the possibility of false alleles makes convergence difficult with sparse G.obs
+#Without spatial information, the possiblity of false alleles makes convergence difficult with sparse G.obs
 #Helps to provide ballpark inits for p.geno.het especially, providing them for p.geno.hom here, too.
 #essentially, if you initialize the false allele probability near 1, the samples will be allocated very poorly
 #on the first iterations and the false allele probability can get stuck near 1.
+p.geno.het.init <- matrix(NA,nrow=2,ncol=3)
+p.geno.hom.init <- matrix(NA,nrow=2,ncol=2)
+p.geno.het.init[1,] <- c(0.9,0.05,0.05)
+p.geno.het.init[2,] <- c(0.9,0.05,0.05)
+p.geno.hom.init[1,] <- c(0.9,0.1)
+p.geno.hom.init[2,] <- c(0.9,0.1)
+
 Niminits <- list(z=nimbuild$z,N=nimbuild$N, #must initialize N to be sum(z) for this data augmentation approach
                  G.true=nimbuild$G.true,ID=nimbuild$ID,capcounts=rowSums(nimbuild$y.true),
-                 y.true=nimbuild$y.true,G.latent=nimbuild$G.latent,p.geno.het=c(0.75,0.24,0.01),p.geno.hom=c(0.9,0.1),
+                 y.true=nimbuild$y.true,G.latent=nimbuild$G.latent,
+                 p.geno.het=p.geno.het.init,p.geno.hom=p.geno.hom.init,
                  gammaMat=gammaMat)
 
 #constants for Nimble
 constants <- list(M=M,K=K,n.samples=n.samples,n.loci=n.loci,n.rep=n.rep,
                 na.ind=nimbuild$G.obs.NA.indicator, #tells nimble which observed genotype scores are missing
-                n.levels=n.levels,max.levels=max(n.levels),ptype=ptype)
+                n.levels=n.levels,max.levels=max(n.levels),ptype=ptype,samp.levels=samp.levels)
 
 # set parameters to monitor
-parameters <- c('lambda.N','beta0.p.y','sd.p.y','lambda.y','N','n','p.geno.het','p.geno.hom','gammaMat')
+parameters <- c('lambda.N','p.y','lambda.y','N','n','p.geno.het','p.geno.hom','gammaMat')
 
 #can also monitor a different set of parameters with a different thinning rate
 parameters2 <- c('ID',"G.true") #monitoring the IDs and the true genotypes so we can explore them below
@@ -222,7 +225,7 @@ start.time <- Sys.time()
 Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FALSE,inits=Niminits)
 #tell nimble which nodes to configure so we don't waste time for samplers we will replace below
 #if you add parameters to the model file, need to add them here.
-config.nodes <- c('log_lambda.N','beta0.p.y','sd.p.y','z.y','lambda.y','p.geno.het','p.geno.hom','gammaMat')
+config.nodes <- c('log_lambda.N','logit_p.y','lambda.y','p.geno.het','p.geno.hom','gammaMat')
 # config.nodes <- c()
 conf <- configureMCMC(Rmodel,monitors=parameters, thin=nt,useConjugacy = FALSE,
                       monitors2=parameters2,thin2=nt2,
@@ -234,7 +237,7 @@ conf <- configureMCMC(Rmodel,monitors=parameters, thin=nt,useConjugacy = FALSE,
 #conf$removeSampler("G.obs")
 #conf$removeSampler("y.true")
 conf$addSampler(target = paste0("y.true[1:",M,",1:",K,"]"),
-                type = 'IDSampler',control = list(M=M,K=K,n.loci=n.loci,n.samples=n.samples,
+                type = 'IDSampler',control = list(M=M,K=K,n.loci=n.loci,n.samples=n.samples,samp.type=data$samp.type,
                                                   n.rep=n.rep,this.k=nimbuild$this.k,G.obs=data$G.obs,
                                                   na.ind=nimbuild$G.obs.NA.indicator,n.levels=n.levels),
                 silent = TRUE)
@@ -248,7 +251,7 @@ conf$addSampler(target = paste0("y.true[1:",M,",1:",K,"]"),
 #   for(m in 1:n.loci){
 #     conf$addSampler(target = paste("G.true[",i,",",m,"]", sep=""),
 #                     type = 'GSampler',
-#                     control = list(i = i,m=m,n.levels=n.levels,n.rep=n.rep,
+#                     control = list(i = i,m=m,n.levels=n.levels,n.rep=n.rep,samp.type=data$samp.type,
 #                                    na.ind=nimbuild$G.obs.NA.indicator[,m,]), silent = TRUE)
 #   }
 # }
@@ -260,7 +263,7 @@ G.obs.nodes <- Rmodel$expandNodeNames(paste0("G.obs[1:",n.samples,",1:",n.loci,"
 calcNodes <- c(G.true.nodes,G.obs.nodes)
 conf$addSampler(target = paste0("G.true[1:",M,",1:",n.loci,"]"),
                 type = 'GSampler2',
-                control = list(M=M,n.loci=n.loci,n.levels=n.levels,n.rep=n.rep,
+                control = list(M=M,n.loci=n.loci,n.levels=n.levels,n.rep=n.rep,samp.type=data$samp.type,
                                na.ind=nimbuild$G.obs.NA.indicator,n.samples=nimbuild$n.samples,
                                G.true.nodes=G.true.nodes,G.obs.nodes=G.obs.nodes,
                                calcNodes=calcNodes), silent = TRUE)
@@ -285,10 +288,7 @@ conf$addSampler(target = c("N"),
 #can block these if highly correlated.
 #often works best if you use both the independent and block updates, so maybe don't remove the independent updates.
 # conf$removeSampler(c("log_lambda.N","logit_p.y"))
-#might help to add sd.p.y to the block sampler, not sure. Might work better with type="AF_slice"
-#if so, but much slower to run.
-
-conf$addSampler(target = c("log_lambda.N","beta0.p.y"),
+conf$addSampler(target = c("log_lambda.N","logit_p.y"),
 type = 'RW_block',control=list(adaptive=TRUE,tries=1),silent = TRUE)
 
 # Build and compile

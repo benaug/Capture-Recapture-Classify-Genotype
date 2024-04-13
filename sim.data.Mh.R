@@ -74,7 +74,8 @@ sim.data.Mh <-
     if(!all(y.obs==y)){
       stop("Error in data simulator!")
     }
-    theta=vector("list",n.loci)
+    #build genotype classification array
+    theta <- vector("list",n.loci)
     for(m in 1:n.loci){
       theta[[m]] <- matrix(0,nrow=n.levels[m],ncol=n.levels[m])
       for(l in 1:n.levels[m]){
@@ -89,7 +90,7 @@ sim.data.Mh <-
       }
     }
     
-    #observation error
+    #loci-level amplification and genotyping observation process
     G.error <- array(NA,dim=c(n.samples,n.loci,n.rep))
     for(k in 1:n.rep){
       G.error[,,k] <- G.cap
@@ -108,31 +109,23 @@ sim.data.Mh <-
       }
     }
     #find errors that occurred
-    G.Obstype <- array(0,dim=c(n.samples,n.loci,n.rep))
+    G.obstype <- array(0,dim=c(n.samples,n.loci,n.rep))
     for(k in 1:n.rep){
       for(l in 1:n.loci){
         for(i in 1:n.samples){
           if(is.na(G.error[i,l,k]))next#is missing
           if(G.error[i,l,k]==G.cap[i,l]){#is correct
-            G.Obstype[i,l,k] <- 1
+            G.obstype[i,l,k] <- 1
           }else{#is an error
-            G.Obstype[i,l,k] <- ptype[[l]][G.error[i,l,k],G.cap[i,l]]
+            G.obstype[i,l,k] <- ptype[[l]][G.cap[i,l],G.error[i,l,k]]
           }
         }
       }
     }
-    getmode  <-  function(v) {
-      uniqv  <-  unique(v)
-      uniqv[which.max(tabulate(match(v, uniqv)))]
-    }
-    #generate a crude consensus genotype
-    G.consensus <- apply(G.error,c(1,2),function(x){getmode(x[x!=0])})
-    #how many of the crude consensus genotypes are corrupted?
-    corrupted <- sum(apply(G.consensus==G.cap,1,function(x){any(x==FALSE)}),na.rm=TRUE)
     
     out <- list(y=y,this.k=this.k,G.true=G.true,G.obs=G.error,n.loci=n.loci,n.levels=n.levels,
              n.samples=length(this.k),IDlist=list(n.loci=n.loci,IDcovs=IDcovs,ptype=ptype),
-             ID=ID,K=K,n=nrow(y),corrupted=corrupted,G.Obstype=G.Obstype,p.y=p.y,seed=seed)
+             ID=ID,K=K,n=nrow(y),G.obstype=G.obstype,p.y=p.y,seed=seed)
     
     return(out)
   }
