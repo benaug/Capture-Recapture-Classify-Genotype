@@ -262,10 +262,7 @@ GSampler2 <- nimbleFunction(
   methods = list( reset = function () {} )
 )
 
-
-#------------------------------------------------------------------
-# Customer sampler to update latent IDs, and associated arrays
-#------------------------------------------------------------------
+#y.true/ID update
 IDSampler <- nimbleFunction(
   contains = sampler_BASE,
   setup = function(model, mvSaved, target, control) {
@@ -390,7 +387,7 @@ IDSampler <- nimbleFunction(
   methods = list( reset = function () {} )
 )
 
-#Required custom update for N/z
+#Required custom update for N/z (unless you modify this back to regular data augmentation)
 zSampler <- nimbleFunction(
   contains = sampler_BASE,
   setup = function(model, mvSaved, target, control) {

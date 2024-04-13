@@ -8,7 +8,7 @@ NimModel <- nimbleCode({
       #dirichlet prior parameters, 1 is "all equal", could be smarter
       alpha[m,k] <- 1
     }
-    gammaMat[m,1:n.levels[m]] ~ ddirch(alpha[m,1:n.levels[m]]) #ragged matrix
+    gammaMat[m,1:n.levels[m]] ~ ddirch(alpha[m,1:n.levels[m]]) #ragged matrix of genotype frequencies
   }
   
   #observation model - Bernoulli detection, zero-truncated poisson samples|detection
