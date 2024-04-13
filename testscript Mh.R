@@ -5,8 +5,8 @@
 #e.g., finite mixture. #Can't add individual heterogeneity in 
 #lambda.y unless you modify custom updates
 
-#can try centered and noncentered parameterization, both in model file
-#I haven't explored this fully, but it appears noncentered
+#can try centered and non-centered parameterization, both in model file
+#I haven't explored this fully, but it appears non-centered
 #should generally be used. With settings below, centered shows
 #funneling behavior, terrible mixing, positive bias.
 

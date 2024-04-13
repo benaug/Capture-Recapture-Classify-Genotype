@@ -38,7 +38,7 @@ NimModel <- nimbleCode({
       #Individual genotypes, all augmented individuals
       G.true[i,m] ~ dcat(gammaMat[m,1:n.levels[m]])
     }
-    #noncentered random effect
+    #non-centered random effect
     z.y[i] ~ dnorm(0,sd=1)
     logit(p.y[i]) <- beta0.p.y + z.y[i]*sd.p.y
     #centered random effect
