@@ -1,7 +1,7 @@
 sim.data <-
   function(N=NA,p.y=NA,lambda.y=NA,K=NA,p.geno.het=NA,
            p.geno.hom=NA,n.loci=NA,n.rep=NA,
-           pID=NA,gamma=NA,IDcovs=NA,ptype=NA,seed=NA){
+           p.amp=NA,gamma=NA,IDcovs=NA,ptype=NA,seed=NA){
     #error checks
     if(length(gamma)!=n.loci)stop("gamma must be of length n.loci")
     for(l in 1:n.loci){
@@ -95,7 +95,7 @@ sim.data <-
       G.error[,,k] <- G.cap
       for(l in 1:n.loci){
         for(i in 1:n.samples){
-          if(rbinom(1,1,pID[l])==1){
+          if(rbinom(1,1,p.amp[l])==1){
             for(j in 1:n.levels[l]){
               if(G.cap[i,l]==j){
                 G.error[i,l,k] <- sample(IDcovs[[l]],1,prob=theta[[l]][j,])

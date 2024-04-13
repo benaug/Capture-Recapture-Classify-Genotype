@@ -70,9 +70,10 @@ str(gammameans)
 #Now we have the information required to simulate a data set similar to the fisher data set
 
 #First, let's decide how many loci to use. This repo assumes you have at least 2 (I didn't put in work to allow 1, can be done in theory)
-n.loci <- 9
-# with 9 loci, there is rarely uncertainty in ID, unless genotyping error is high. Can use fewer loci
+#with 9 loci, there is rarely uncertainty in ID, unless genotyping error is high. Can use fewer loci
 #here to get more uncertainty in sample IDs
+n.loci <- 9
+
 #discard unused information if you don't use them all
 if(n.loci!=9){
   for(i in 9:(n.loci+1)){
@@ -95,7 +96,7 @@ lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
 K <- 5 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
-IDcovs <- vector("list",n.loci)
+IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
 for(i in 1:n.loci){
   IDcovs[[i]] <- 1:nrow(unique.genos[[i]])
 }
@@ -105,12 +106,12 @@ for(i in 1:n.loci){
   gamma[[i]] <- gammameans[[i]] #This uses the frequencies estimated from fisher data set
 }
 
-pID <- rep(0.9,n.loci) #loci-level sample by replication amplification probabilities (controls level of missing scores in G.obs)
+p.amp <- rep(0.9,n.loci) #loci-level sample by replication amplification probabilities (controls level of missing scores in G.obs)
 p.geno.het <- c(0.85,0.149,0.001) #P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)
 p.geno.hom <- c(0.999,0.001) #P(correct,false allele) for homozygotes
 
 data <- sim.data(N=N,p.y=p.y,lambda.y=lambda.y,K=K,#cap-recap parameters/constants
-                  n.loci=n.loci,pID=pID,n.rep=n.rep,
+                  n.loci=n.loci,p.amp=p.amp,n.rep=n.rep,
                   p.geno.hom=p.geno.hom,p.geno.het=p.geno.het,
                   gamma=gamma,IDcovs=IDcovs,ptype=ptype)
 
@@ -351,7 +352,7 @@ if(length(these.samps>0)){
 #here we can look at the entire posterior of true genotypes for this individual
 #Note, individuals with samples strongly linked to them will have precisely
 #estimated true genotypes while individuals without samples strongly linked
-#will have very imprecisely estimated true genotypes. If no samples ever allocate,
+#will have very imprecisely estimated true genotypes. If no samples ever allocated,
 #you are just drawing true genotypes from the estimated population-level genotype frequencies
 out <- t(apply(G.samps[ind,,],2,FUN=map.genos,unique.genos))
 head(out,10)

@@ -5,7 +5,7 @@ NimModel <- nimbleCode({
   #genotype frequency priors
   for(m in 1:n.loci){
     for(k in 1:n.levels[m]){
-      #dirichlet prior parameters, 1 is "all equal", could be smarter
+      #dirichlet prior parameters, 1 is "all equal", could be smarter, can put distributions on log(alpha)
       alpha[m,k] <- 1
     }
     gammaMat[m,1:n.levels[m]] ~ ddirch(alpha[m,1:n.levels[m]]) #ragged matrix of genotype frequencies
