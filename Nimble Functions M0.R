@@ -303,8 +303,6 @@ IDSampler <- nimbleFunction(
     
     #categorical update
     for(l in 1:n.samples){
-      # y.cand <- y.true #necessary for every sample for correct proposal probs
-      #G.probs proportional to genotyping error likelihood over all loci and reps
       lp.G <- rep(0,M)
       lp.y.total <- rep(sum(lp.y[,this.k[l]]),M)*z
       for(i in 1:M){
@@ -341,8 +339,7 @@ IDSampler <- nimbleFunction(
           lp.y.total[i] <- lp.G[i] <- -Inf
         }
       }
-
-      total.probs <- exp(lp.y.total + lp.G)
+      total.probs <- exp(lp.y.total-max(lp.y.total) + lp.G-max(lp.G))
       total.probs <- total.probs/sum(total.probs)
       prop.i <- rcat(1,prob=total.probs)
       focal.i <- ID[l]
