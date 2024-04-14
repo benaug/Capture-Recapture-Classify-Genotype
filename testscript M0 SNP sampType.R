@@ -26,7 +26,7 @@ source("Nimble Functions M0 SNP sampType.R")
 nimbleOptions(determinePredictiveNodesInModel = FALSE)
 
 #First, let's structure some SNPs.
-n.loci <- 15 #number of SNP loci, 15 will leave uncertainty in ID with settings below
+n.loci <- 50 #number of SNP loci, 25 will leave uncertainty in ID with settings below
 unique.genos <- vector("list")
 for(m in 1:n.loci){
   unique.genos[[m]] <- matrix(c(1,1,2,2,1,2),nrow=3,byrow=TRUE)
@@ -44,7 +44,7 @@ N <- 75 #realized abundance
 p.y <- 0.2 #capture probability
 lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
 K <- 5 #number of capture occasions
-n.rep <- 2 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
+n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
 for(i in 1:n.loci){
@@ -63,10 +63,10 @@ samp.levels <- 2 #number of sample type covariates. Each type has it's own genot
 p.geno.het <- vector("list",samp.levels)
 p.geno.hom <- vector("list",samp.levels)
 #P(correct, allelic dropout) for heterozygotes
-p.geno.het[[1]] <- c(0.95,0.05) #high quality
+p.geno.het[[1]] <- c(0.99,0.01) #high quality
 p.geno.het[[2]] <- c(0.65,0.35) #low quality
 #P(correct,false allele) for homozygotes
-p.geno.hom[[1]] <- c(0.95,0.05) #high quality
+p.geno.hom[[1]] <- c(0.99,0.01) #high quality
 p.geno.hom[[2]] <- c(0.65,0.35) #low quality
 
 pi.samp.type <- c(0.52,0.48) #frequencies of each sample type
@@ -101,7 +101,7 @@ for(i in 1:length(these.samps)){
 
 #Data augmentation level - must be larger than N. 
 #If N ever hits M during MCMC after convergence, raise M and start over
-M <- 150
+M <- 250
 if(M<N)stop("M must be larger than simulate N")
 
 #set some gamma inits. Using equal across locus-level genotypes here
