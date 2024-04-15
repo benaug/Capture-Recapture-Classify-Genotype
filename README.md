@@ -1,5 +1,8 @@
 Capture-recapture-classify using genotypes for individual identity
 
+###4/15/2024 Disclaimer: I realized the categorical ID update isn't correct, I need to switch back to Metropolis-Hastings. The observation model distribution is on y, not ID, so I need to account for the probability of selecting counts to update. Will fix this shortly.
+
+
 Nonspatial application of the approach used in the genotype SPIM repo, with some differences. No spatial information is used (obviously), observation model is different (Poisson more realistic with space, less so without), and therefore the ID update is different. The observation model here is Bernoulli for detection then zero-truncated Poisson for number of samples given detection. I use a categorical sampler here instead of Metropolis-Hastings I used in genotype SPIM. I like this observation model better and should add it to genotype SPIM. Though that would require not aggregating detections over occasions as I do now (relying on Poisson results).
 
 Currently there are files for M0 and Mh (regular models for microsatellites). For M0, there are versions that do (sampType in file names) and do not allow variation in genotyping error probabilities as a function of categorical covariates. Continuous covariates can be used, but I haven't provided that here. Continuous covariates require a genotype classification matrix for every sample, so it is slow. There are also M0 versions with and without sample type covariates for SNPs.
