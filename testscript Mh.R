@@ -311,7 +311,7 @@ mvSamples <- as.matrix(Cmcmc$mvSamples)
 
 #remove gammaMat posteriors (not that interesting and tons of them) and plot
 idx <- grep("gammaMat",colnames(mvSamples))
-plot(mcmc(mvSamples[500:nrow(mvSamples),-idx]))
+plot(mcmc(mvSamples[50:nrow(mvSamples),-idx]))
 
 data$n #number of individuals captured to compare to posterior for n. No uncertainty with enough genotype info.
 

@@ -101,9 +101,9 @@ n.levels
 
 #Normal capture-recapture stuff
 N <- 75 #realized abundance
-p.y <- 0.2 #capture probability
+p.y <- 0.1 #capture probability
 lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
-K <- 5 #number of capture occasions
+K <- 10 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
@@ -159,7 +159,7 @@ for(i in 1:length(these.samps)){
 
 #Data augmentation level - must be larger than N. 
 #If N ever hits M during MCMC after convergence, raise M and start over
-M <- 150
+M <- 200
 if(M<N)stop("M must be larger than simulate N")
 
 #set some gamma inits. Using equal across locus-level genotypes here
@@ -311,7 +311,7 @@ mvSamples <- as.matrix(Cmcmc$mvSamples)
 
 #remove gammaMat posteriors (not that interesting and tons of them) and plot
 idx <- grep("gammaMat",colnames(mvSamples))
-plot(mcmc(mvSamples[500:nrow(mvSamples),-idx]))
+plot(mcmc(mvSamples[100:nrow(mvSamples),-idx]))
 
 data$n #number of individuals captured to compare to posterior for n. No uncertainty with enough genotype info.
 

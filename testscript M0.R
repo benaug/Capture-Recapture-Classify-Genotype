@@ -175,7 +175,8 @@ Nimdata <- list(G.obs=nimbuild$G.obs)
 Niminits <- list(z=nimbuild$z,N=nimbuild$N, #must initialize N to be sum(z) for this data augmentation approach
                  G.true=nimbuild$G.true,ID=nimbuild$ID,capcounts=rowSums(nimbuild$y.true),
                  y.true=nimbuild$y.true,G.latent=nimbuild$G.latent,p.geno.het=c(0.75,0.24,0.01),p.geno.hom=c(0.9,0.1),
-                 gammaMat=gammaMat)
+                 gammaMat=gammaMat,
+                 p.y=p.y,lambda.y=lambda.y) #remove these after testing
 
 #constants for Nimble
 constants <- list(M=M,K=K,n.samples=n.samples,n.loci=n.loci,n.rep=n.rep,
@@ -282,7 +283,7 @@ mvSamples <- as.matrix(Cmcmc$mvSamples)
 
 #remove gammaMat posteriors (not that interesting and tons of them) and plot
 idx <- grep("gammaMat",colnames(mvSamples))
-plot(mcmc(mvSamples[500:nrow(mvSamples),-idx]))
+plot(mcmc(mvSamples[200:nrow(mvSamples),-idx]))
 
 data$n #number of individuals captured to compare to posterior for n. No uncertainty with enough genotype info.
 

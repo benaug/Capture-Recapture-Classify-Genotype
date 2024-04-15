@@ -101,7 +101,7 @@ for(i in 1:length(these.samps)){
 
 #Data augmentation level - must be larger than N. 
 #If N ever hits M during MCMC after convergence, raise M and start over
-M <- 250
+M <- 200
 if(M<N)stop("M must be larger than simulate N")
 
 #set some gamma inits. Using equal across locus-level genotypes here
@@ -245,7 +245,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 #Can ignore nimble warnings about G.obs value NA or NaN, due to padding to keep dimensions constant for nimble
 start.time2 <- Sys.time()
 #starting with short run
-Cmcmc$run(5000,reset=FALSE) #can extend run by rerunning this line, e.g. run longer if not converged, or want more samples
+Cmcmc$run(2000,reset=FALSE) #can extend run by rerunning this line, e.g. run longer if not converged, or want more samples
 end.time <- Sys.time()
 end.time-start.time  # total time for compilation, replacing samplers, and fitting
 end.time-start.time2 # post-compilation run time

@@ -300,63 +300,87 @@ IDSampler <- nimbleFunction(
         }
       }
     }
-    
-    #categorical update
+    #could pull this out of model instead, vectorized over reps...
+    lp.G <- array(0,dim=c(n.samples,n.loci,n.rep))
     for(l in 1:n.samples){
-      lp.G <- rep(0,M)
-      lp.y.total <- rep(sum(lp.y[,this.k[l]]),M)*z
+      for(m in 1:n.loci){
+        for(rep in 1:n.rep){
+          if(na.ind[l,m,rep]==FALSE){
+            lp.G[l,m,rep] <- dcat(G.obs[l,m,rep],theta[m,G.true[ID[l],m],1:n.levels[m]],log=TRUE)
+          }
+        }
+      }
+    }
+    lp.y.cand <- lp.y
+    lp.G.cand <- lp.G
+    ID.cand <- ID
+    y.cand <- y.true
+    
+    for(l in 1:n.samples){
+      #get symmetric proposal distribution for sample l
+      lp.G.prop <- rep(0,M) #considers how well sample l matches all G.true in population, does not consider obsmod
       for(i in 1:M){
         if(z[i]==1){
           for(m in 1:n.loci){
             for(rep in 1:n.rep){
               if(na.ind[l,m,rep]==FALSE){ #if observed
-                lp.G[i] <- lp.G[i] + log(theta[m,G.true[i,m],G.obs[l,m,rep]])
+                lp.G.prop[i] <- lp.G.prop[i] + log(theta[m,G.true[i,m],G.obs[l,m,rep]])
               }
             }
           }
-          if(i!=ID[l]){#otherwise lp.y.total is already correct (current total)
-            #move sample from old guy to new guy
-            #old guy
-            y.tmp1 <- y.true[ID[l],this.k[l]] - 1
-            lp.tmp1 <- 0
-            if(y.tmp1==0){ #if not captured
-              lp.tmp1 <- dbinom(0,size=1,prob=p.y,log=TRUE)
-            }else{ #if captured
-              lp.tmp1 <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.tmp1,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
-            }
-            #new guy
-            y.tmp2 <- y.true[i,this.k[l]] + 1
-            lp.tmp2 <- 0
-            if(y.tmp2==0){ #if not captured, will never happen in giving a guy this sample
-              lp.tmp2 <- dbinom(0,size=1,prob=p.y,log=TRUE)
-            }else{ #if captured
-              lp.tmp2 <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.tmp2,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
-            }
-            #add likelihood difference for each guy from current.
-            lp.y.total[i] <- lp.y.total[i] + (lp.y[ID[l],this.k[l]] - lp.tmp1) + (lp.y[i,this.k[l]] - lp.tmp2)
-          }
-        }else{ #can't propose this guy if z==0
-          lp.y.total[i] <- lp.G[i] <- -Inf
+        }else{
+          lp.G.prop[i] <- -Inf
         }
       }
-      total.probs <- exp(lp.y.total-max(lp.y.total) + lp.G-max(lp.G))
-      total.probs <- total.probs/sum(total.probs)
-      prop.i <- rcat(1,prob=total.probs)
+      prop.probs <- exp(lp.G.prop)
+      prop.probs <- prop.probs/sum(prop.probs)
+      prop.i <- rcat(1,prob=prop.probs)
       focal.i <- ID[l]
-
+      
       if(ID[l]!=prop.i){ #skip if propose same ID
-        ID[l] <- prop.i
+        #update this ID
+        ID.cand[l] <- prop.i
         swapped <- c(focal.i,prop.i)
         #update y.true
-        y.true[swapped[1],this.k[l]] <- y.true[swapped[1],this.k[l]]-1
-        y.true[swapped[2],this.k[l]] <- y.true[swapped[2],this.k[l]]+1
+        y.cand[swapped[1],this.k[l]] <- y.true[swapped[1],this.k[l]] - 1
+        y.cand[swapped[2],this.k[l]] <- y.true[swapped[2],this.k[l]] + 1
         ##update lp.y
         for(i in 1:2){
-          if(y.true[swapped[i],this.k[l]]==0){ #if not captured
-            lp.y[swapped[i],this.k[l]] <- dbinom(0,size=1,prob=p.y,log=TRUE)
+          if(y.cand[swapped[i],this.k[l]]==0){ #if not captured
+            lp.y.cand[swapped[i],this.k[l]] <- dbinom(0,size=1,prob=p.y,log=TRUE)
           }else{ #if captured
-            lp.y[swapped[i],this.k[l]] <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.true[swapped[i],this.k[l]],lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
+            lp.y.cand[swapped[i],this.k[l]] <- dbinom(1,size=1,prob=p.y,log=TRUE) + log(dpois(y.cand[swapped[i],this.k[l]],lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
           }
+        }
+        #update lp.G
+        for(m in 1:n.loci){
+          for(rep in 1:n.rep){
+            if(na.ind[l,m,rep]==FALSE){
+              lp.G.cand[l,m,rep] <- dcat(G.obs[l,m,rep],theta[m,G.true[ID.cand[l],m],1:n.levels[m]],log=TRUE)
+            }else{
+              lp.G.cand[l,m,rep] <- 0
+            }
+          }
+        }
+       
+        prop.prob.for <- prop.probs[swapped[2]]
+        prop.prob.back <- prop.probs[swapped[1]]
+        #probability we select this y[i,k] to update by selecting an ID at random
+        select.prob.for <- sum(ID==ID[l]&this.k==this.k[l])/n.samples
+        select.prob.back <- sum(ID.cand==ID.cand[l]&this.k==this.k[l])/n.samples
+        
+        if(runif(1)<exp((sum(lp.y.cand[swapped,this.k[l]]) + sum(lp.G.cand[l,,]))-
+                        (sum(lp.y[swapped,this.k[l]]) + sum(lp.G[l,,])))*
+           (prop.prob.back/prop.prob.for)*(select.prob.back/select.prob.for)){
+          y.true[swapped,this.k[l]] <- y.cand[swapped,this.k[l]]
+          lp.y[swapped,this.k[l]] <- lp.y.cand[swapped,this.k[l]]
+          lp.G[l,,] <- lp.G.cand[l,,]
+          ID[l] <- ID.cand[l]
+        }else{#set these back
+          y.cand[swapped,this.k[l]] <- y.true[swapped,this.k[l]]
+          lp.y.cand[swapped,this.k[l]] <- lp.y[swapped,this.k[l]]
+          lp.G.cand[l,,] <- lp.G[l,,]
+          ID.cand[l] <- ID[l]
         }
       }
     }
