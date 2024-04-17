@@ -91,9 +91,9 @@ n.levels
 
 #Normal capture-recapture stuff
 N <- 75 #realized abundance
-p.y <- 0.2 #capture probability
-lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
-K <- 5 #number of capture occasions
+p.y <- 0.05 #capture probability
+lambda.y <- 1  #parameter for number of samples given capture (ZT Poisson)
+K <- 20 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
@@ -107,9 +107,9 @@ for(i in 1:n.loci){
 }
 
 #Genotype observation process parameters. Can have failed amplification (missing completely at random) and genotyping error
-p.amp <- rep(0.9,n.loci) #loci-level sample by replication amplification probabilities (controls level of missing scores in G.obs)
-p.geno.het <- c(0.85,0.149,0.001) #P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)
-p.geno.hom <- c(0.999,0.001) #P(correct,false allele) for homozygotes
+p.amp <- rep(1,n.loci) #loci-level sample by replication amplification probabilities (controls level of missing scores in G.obs)
+p.geno.het <- c(0.75,0.249,0.001) #P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)
+p.geno.hom <- c(0.75,0.25) #P(correct,false allele) for homozygotes
 
 data <- sim.data(N=N,p.y=p.y,lambda.y=lambda.y,K=K,#cap-recap parameters/constants
                   n.loci=n.loci,p.amp=p.amp,n.rep=n.rep,
@@ -274,7 +274,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 #Can ignore nimble warnings about G.obs value NA or NaN, due to padding to keep dimensions constant for nimble
 start.time2 <- Sys.time()
 #starting with short run
-Cmcmc$run(5000,reset=FALSE) #can extend run by rerunning this line, e.g. run longer if not converged, or want more samples
+Cmcmc$run(2000,reset=FALSE) #can extend run by rerunning this line, e.g. run longer if not converged, or want more samples
 end.time <- Sys.time()
 end.time-start.time  # total time for compilation, replacing samplers, and fitting
 end.time-start.time2 # post-compilation run time

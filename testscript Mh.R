@@ -109,10 +109,10 @@ n.levels
 
 #Normal capture-recapture stuff
 N <- 75 #realized abundance
-beta0.p.y <- qlogis(0.1) #mean capture probability converted to an intecept on logit scale
+beta0.p.y <- qlogis(0.05) #mean capture probability converted to an intercept on logit scale
 sd.p.y <- 0.25
-lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
-K <- 10 #number of capture occasions
+lambda.y <- 1 #parameter for number of samples given capture (ZT Poisson)
+K <- 20 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 #see what individual heterogeneity distribution looks like

@@ -101,9 +101,9 @@ n.levels
 
 #Normal capture-recapture stuff
 N <- 75 #realized abundance
-p.y <- 0.1 #capture probability
-lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
-K <- 10 #number of capture occasions
+p.y <- 0.05 #capture probability
+lambda.y <- 1 #parameter for number of samples given capture (ZT Poisson)
+K <- 20 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
@@ -120,7 +120,7 @@ for(i in 1:n.loci){
 #using estimates from fisher data set below
 samp.levels <- 2 #number of sample type covariates. Each type has it's own genotyping error rates.
 #p.amp below is for each sample type in this script instead of each loci as in others
-p.amp <- c(0.999,0.25) #sample by replication amplification probabilities (controls level of missing scores in G.obs)
+p.amp <- c(0.999,0.75) #sample by replication amplification probabilities (controls level of missing scores in G.obs)
 p.geno.het <- vector("list",samp.levels)
 p.geno.hom <- vector("list",samp.levels)
 #P(correct, allelic dropout,false allele) for heterozygotes (using fisher ests here)

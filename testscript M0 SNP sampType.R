@@ -26,7 +26,7 @@ source("Nimble Functions M0 SNP sampType.R")
 nimbleOptions(determinePredictiveNodesInModel = FALSE)
 
 #First, let's structure some SNPs.
-n.loci <- 50 #number of SNP loci, 25 will leave uncertainty in ID with settings below
+n.loci <- 50 #number of SNP loci, 50 will leave uncertainty in ID with settings below
 unique.genos <- vector("list")
 for(m in 1:n.loci){
   unique.genos[[m]] <- matrix(c(1,1,2,2,1,2),nrow=3,byrow=TRUE)
@@ -41,9 +41,9 @@ ptype <- built.genos$ptype #list of length n.loci with each element being an 3 x
 
 #Normal capture-recapture stuff
 N <- 75 #realized abundance
-p.y <- 0.2 #capture probability
-lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
-K <- 5 #number of capture occasions
+p.y <- 0.05 #capture probability
+lambda.y <- 1  #parameter for number of samples given capture (ZT Poisson)
+K <- 20 #number of capture occasions
 n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
@@ -58,7 +58,7 @@ for(i in 1:n.loci){
 
 #Genotype observation process parameters. Can have failed amplification (missing completely at random) and genotyping error
 #Difference from microsat code here: true heterozygotes don't have false allele events (there is only 1 heterozygote!)
-p.amp <- c(0.999,0.25) #sample by replication amplification probabilities (controls level of missing scores in G.obs)
+p.amp <- c(0.999,0.75) #sample by replication amplification probabilities (controls level of missing scores in G.obs)
 samp.levels <- 2 #number of sample type covariates. Each type has it's own genotyping error rates.
 p.geno.het <- vector("list",samp.levels)
 p.geno.hom <- vector("list",samp.levels)

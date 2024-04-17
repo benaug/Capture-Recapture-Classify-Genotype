@@ -22,7 +22,7 @@ source("Nimble Functions M0 SNP.R")
 nimbleOptions(determinePredictiveNodesInModel = FALSE)
 
 #First, let's structure some SNPs.
-n.loci <- 15 #number of SNP loci, 15 will leave uncertainty in ID with settings below
+n.loci <- 50
 unique.genos <- vector("list")
 for(m in 1:n.loci){
   unique.genos[[m]] <- matrix(c(1,1,2,2,1,2),nrow=3,byrow=TRUE)
@@ -37,10 +37,10 @@ ptype <- built.genos$ptype #list of length n.loci with each element being an 3 x
 
 #Normal capture-recapture stuff
 N <- 75 #realized abundance
-p.y <- 0.2 #capture probability
-lambda.y <- 1 #expected number of samples given capture (ZT Poisson)
-K <- 5 #number of capture occasions
-n.rep <- 2 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
+p.y <- 0.05 #capture probability
+lambda.y <- 1  #parameter for number of samples given capture (ZT Poisson)
+K <- 20 #number of capture occasions
+n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
 for(i in 1:n.loci){
