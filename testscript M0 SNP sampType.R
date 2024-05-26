@@ -44,7 +44,7 @@ N <- 75 #realized abundance
 p.y <- 0.05 #capture probability
 lambda.y <- 1  #parameter for number of samples given capture (ZT Poisson)
 K <- 20 #number of capture occasions
-n.rep <- 3 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
+n.rep <- 2 #number of PCR reps per sample. This repo assumes at least 2 (1 allowed in genoSPIM, but generally need replication)
 
 IDcovs <- vector("list",n.loci) #enumerating genotypes here for simulation and data initialization
 for(i in 1:n.loci){
@@ -144,6 +144,7 @@ p.geno.hom.init[1,] <- c(0.9,0.1)
 p.geno.hom.init[2,] <- c(0.9,0.1)
 
 Niminits <- list(z=nimbuild$z,N=nimbuild$N, #must initialize N to be sum(z) for this data augmentation approach
+                 lambda.N=nimbuild$N, #converges faster if you set expected and realized N inits to be consistent
                  G.true=nimbuild$G.true,ID=nimbuild$ID,capcounts=rowSums(nimbuild$y.true),
                  y.true=nimbuild$y.true,G.latent=nimbuild$G.latent,
                  p.geno.het=p.geno.het.init,p.geno.hom=p.geno.hom.init,
@@ -168,7 +169,7 @@ start.time <- Sys.time()
 Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FALSE,inits=Niminits)
 #tell nimble which nodes to configure so we don't waste time for samplers we will replace below
 #if you add parameters to the model file, need to add them here.
-config.nodes <- c('log_lambda.N','logit_p.y','lambda.y','p.geno.het','p.geno.hom','gammaMat')
+config.nodes <- c('lambda.N','logit_p.y','lambda.y','p.geno.het','p.geno.hom','gammaMat')
 # config.nodes <- c()
 conf <- configureMCMC(Rmodel,monitors=parameters, thin=nt,useConjugacy = FALSE,
                       monitors2=parameters2,thin2=nt2,
@@ -230,8 +231,8 @@ conf$addSampler(target = c("N"),
 
 #can block these if highly correlated.
 #often works best if you use both the independent and block updates, so maybe don't remove the independent updates.
-# conf$removeSampler(c("log_lambda.N","logit_p.y"))
-conf$addSampler(target = c("log_lambda.N","logit_p.y"),
+# conf$removeSampler(c("lambda.N","logit_p.y"))
+conf$addSampler(target = c("lambda.N","logit_p.y"),
 type = 'RW_block',control=list(adaptive=TRUE,tries=1),silent = TRUE)
 
 # Build and compile
@@ -245,7 +246,7 @@ Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
 #Can ignore nimble warnings about G.obs value NA or NaN, due to padding to keep dimensions constant for nimble
 start.time2 <- Sys.time()
 #starting with short run
-Cmcmc$run(2000,reset=FALSE) #can extend run by rerunning this line, e.g. run longer if not converged, or want more samples
+Cmcmc$run(5000,reset=FALSE) #can extend run by rerunning this line, e.g. run longer if not converged, or want more samples
 end.time <- Sys.time()
 end.time-start.time  # total time for compilation, replacing samplers, and fitting
 end.time-start.time2 # post-compilation run time

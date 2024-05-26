@@ -1,7 +1,7 @@
 NimModel <- nimbleCode({
   ###priors##
   #process model
-  log(lambda.N) ~ dnorm(0,sd=10) #expected abundance
+  lambda.N ~ dunif(0,1000) #expected abundance
   #genotype frequency priors
   for(m in 1:n.loci){
     for(k in 1:n.levels[m]){

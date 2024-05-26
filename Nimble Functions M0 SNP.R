@@ -311,8 +311,8 @@ IDSampler <- nimbleFunction(
     
     for(l in 1:n.samples){
       #get proposal distribution for sample l
-      lp.G.prop <- rep(0,M) #considers how well sample l matches all G.true in population (symmetric)
-      lp.y.prop <- rep(0,M) #considers how well sample l fits observation model (not symmetric)
+      #get g probs first
+      lp.G.prop <- rep(0,M) #considers how well sample l matches all G.true in population. Can compute this once
       for(i in 1:M){
         if(z[i]==1){
           for(m in 1:n.loci){
@@ -322,36 +322,38 @@ IDSampler <- nimbleFunction(
               }
             }
           }
-          if(i!=ID[l]){#new state
-            y.tmp1 <- y.true[i,this.k[l]] + 1 #if we add sample here
-            y.tmp2 <- y.true[ID[l],this.k[l]] - 1 #if we add sample here
-          }else{
-            y.tmp1 <- y.true[i,this.k[l]] #current state
-          }
+        }
+      }
+      #now y probs
+      lp.y.prop <- rep(0,M) #considers how well sample l fits observation model (not symmetric)
+      for(i in 1:M){
+        if(z[i]==1&(!(i==ID[l]))){
+          y.tmp1 <- y.true[i,this.k[l]] + 1 #if we add sample here
+          y.tmp2 <- y.true[ID[l],this.k[l]] - 1 #if we add sample here
           if(y.tmp1==0){ #if not captured
             lp.y.prop[i] <- dbinom(0,size=1,prob=p.y,log=TRUE)
           }else{ #if captured
             lp.y.prop[i] <- dbinom(1,size=1,prob=p.y,log=TRUE) + 
               log(dpois(y.tmp1,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
           }
-          if(i!=ID[l]){
-            if(y.tmp2==0){ #if not captured
-              lp.y.prop[i] <- lp.y.prop[i] + dbinom(0,size=1,prob=p.y,log=TRUE)
-            }else{ #if captured
-              lp.y.prop[i] <- lp.y.prop[i] + dbinom(1,size=1,prob=p.y,log=TRUE) + 
-                log(dpois(y.tmp2,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
-            }
+          if(y.tmp2==0){ #if not captured
+            lp.y.prop[i] <- lp.y.prop[i] + dbinom(0,size=1,prob=p.y,log=TRUE)
+          }else{ #if captured
+            lp.y.prop[i] <- lp.y.prop[i] + dbinom(1,size=1,prob=p.y,log=TRUE) + 
+              log(dpois(y.tmp2,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
           }
         }else{ #can't propose this guy if z==0
-          lp.y.prop[i] <- lp.G.prop[i] <- -Inf
+          lp.y.prop[i] <- -Inf
         }
       }
-      prop.probs <- exp(lp.G.prop + lp.y.prop)
+      lp.G.prop.for <- lp.G.prop
+      lp.G.prop.for[ID[l]] <- -Inf #disallow self proposal
+      prop.probs <- exp(lp.G.prop.for + lp.y.prop)
       prop.probs <- prop.probs/sum(prop.probs)
       prop.i <- rcat(1,prob=prop.probs)
       focal.i <- ID[l]
       
-      if(ID[l]!=prop.i){ #skip if propose same ID
+      if(ID[l]!=prop.i){ #skip if propose same ID. Actually, this is disallowed now
         #update this ID
         ID.cand[l] <- prop.i
         swapped <- c(focal.i,prop.i)
@@ -378,41 +380,35 @@ IDSampler <- nimbleFunction(
         }
         
         #get backwards proposal distribution for sample l
-        #genotype model probs are symmetric, but observation model probs are not
         lp.y.prop.back <- rep(0,M) #considers how well sample l fits observation model (not symmetric)
         for(i in 1:M){
-          if(z[i]==1){
-            if(i!=ID.cand[l]){#new state
-              y.tmp1 <- y.cand[i,this.k[l]] + 1 #if we add sample here
-              y.tmp2 <- y.cand[ID.cand[l],this.k[l]] - 1 #if we add sample here
-            }else{
-              y.tmp1 <- y.cand[i,this.k[l]] #current state
-            }
+          if(z[i]==1&(!(i==ID.cand[l]))){
+            y.tmp1 <- y.cand[i,this.k[l]] + 1 #if we add sample here
+            y.tmp2 <- y.cand[ID.cand[l],this.k[l]] - 1 #if we add sample here
             if(y.tmp1==0){ #if not captured
               lp.y.prop.back[i] <- dbinom(0,size=1,prob=p.y,log=TRUE)
             }else{ #if captured
               lp.y.prop.back[i] <- dbinom(1,size=1,prob=p.y,log=TRUE) + 
                 log(dpois(y.tmp1,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
             }
-            if(i!=ID.cand[l]){
-              if(y.tmp2==0){ #if not captured
-                lp.y.prop.back[i] <- lp.y.prop.back[i] + dbinom(0,size=1,prob=p.y,log=TRUE)
-              }else{ #if captured
-                lp.y.prop.back[i] <- lp.y.prop.back[i] + dbinom(1,size=1,prob=p.y,log=TRUE) + 
-                  log(dpois(y.tmp2,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
-              }
+            if(y.tmp2==0){ #if not captured
+              lp.y.prop.back[i] <- lp.y.prop.back[i] + dbinom(0,size=1,prob=p.y,log=TRUE)
+            }else{ #if captured
+              lp.y.prop.back[i] <- lp.y.prop.back[i] + dbinom(1,size=1,prob=p.y,log=TRUE) + 
+                log(dpois(y.tmp2,lambda=lambda.y)/(1-dpois(0,lambda=lambda.y)))
             }
           }else{ #can't propose this guy if z==0
             lp.y.prop.back[i] <- -Inf
           }
         }
         
-        prop.probs.back <- exp(lp.G.prop + lp.y.prop.back)
+        lp.G.prop.back <- lp.G.prop
+        lp.G.prop.back[ID.cand[l]] <- -Inf #disallow self proposal
+        prop.probs.back <- exp(lp.G.prop.back + lp.y.prop.back)
         prop.probs.back <- prop.probs.back/sum(prop.probs.back)
         
         prop.prob.for <- prop.probs[swapped[2]]
         prop.prob.back <- prop.probs.back[swapped[1]]
-        
         #probability we select this y[i,k] to update by selecting an ID at random
         select.prob.for <- sum(ID==ID[l]&this.k==this.k[l])/n.samples
         select.prob.back <- sum(ID.cand==ID.cand[l]&this.k==this.k[l])/n.samples

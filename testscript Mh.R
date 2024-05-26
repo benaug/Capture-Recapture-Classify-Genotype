@@ -199,6 +199,7 @@ Nimdata <- list(G.obs=nimbuild$G.obs)
 #essentially, if you initialize the false allele probability near 1, the samples will be allocated very poorly
 #on the first iterations and the false allele probability can get stuck near 1.
 Niminits <- list(z=nimbuild$z,N=nimbuild$N, #must initialize N to be sum(z) for this data augmentation approach
+                 lambda.N=nimbuild$N, #converges faster if you set expected and realized N inits to be consistent
                  G.true=nimbuild$G.true,ID=nimbuild$ID,capcounts=rowSums(nimbuild$y.true),
                  y.true=nimbuild$y.true,G.latent=nimbuild$G.latent,p.geno.het=c(0.75,0.24,0.01),p.geno.hom=c(0.9,0.1),
                  gammaMat=gammaMat)
@@ -222,7 +223,7 @@ start.time <- Sys.time()
 Rmodel <- nimbleModel(code=NimModel, constants=constants, data=Nimdata,check=FALSE,inits=Niminits)
 #tell nimble which nodes to configure so we don't waste time for samplers we will replace below
 #if you add parameters to the model file, need to add them here.
-config.nodes <- c('log_lambda.N','beta0.p.y','sd.p.y','z.y','lambda.y','p.geno.het','p.geno.hom','gammaMat')
+config.nodes <- c('lambda.N','beta0.p.y','sd.p.y','z.y','lambda.y','p.geno.het','p.geno.hom','gammaMat')
 # config.nodes <- c()
 conf <- configureMCMC(Rmodel,monitors=parameters, thin=nt,useConjugacy = FALSE,
                       monitors2=parameters2,thin2=nt2,
@@ -284,11 +285,11 @@ conf$addSampler(target = c("N"),
 
 #can block these if highly correlated.
 #often works best if you use both the independent and block updates, so maybe don't remove the independent updates.
-# conf$removeSampler(c("log_lambda.N","logit_p.y"))
+# conf$removeSampler(c("lambda.N","logit_p.y"))
 #might help to add sd.p.y to the block sampler, not sure. Might work better with type="AF_slice"
 #if so, but much slower to run.
 
-conf$addSampler(target = c("log_lambda.N","beta0.p.y"),
+conf$addSampler(target = c("lambda.N","beta0.p.y"),
 type = 'RW_block',control=list(adaptive=TRUE,tries=1),silent = TRUE)
 
 # Build and compile
